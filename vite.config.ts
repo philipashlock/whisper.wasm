@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
       },
       // Настройки для обработки WASM файлов
       optimizeDeps: {
-        // exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
+        exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
       }
     };
   }
@@ -49,10 +49,6 @@ export default defineConfig(({ mode }) => {
           input: {
             main: resolve(__dirname, 'demo/index.html')
           },
-          // Исключаем WASM файлы из бандлинга в демо
-          external: (id) => {
-            return id.includes('@wasm/') || id.includes('wasm/');
-          }
         },
         // Копируем WASM файлы в демо
         copyPublicDir: false,

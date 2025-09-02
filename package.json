@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "npm run build:lib",
-    "build:lib": "vite build --mode library && node scripts/copy-wasm.js",
+    "build:lib": "vite build --mode library",
     "build:demo": "vite build --mode demo",
     "dev": "vite",
     "dev:demo": "vite --mode demo",

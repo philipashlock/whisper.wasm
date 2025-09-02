@@ -9,11 +9,14 @@ declare global {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export class WhisperWasmService {
   private wasmModule: WhisperWasmModule | null = null;
   private instance: number | null = null;
   private modelFileName: string = 'whisper.bin';
-  private global: typeof window | typeof self = window || self;
 
   constructor() {}
 
@@ -30,16 +33,14 @@ export class WhisperWasmService {
       throw new Error('WASM is not supported');
     }
 
-    if (!this.global.Module) {
+    if (!this.wasmModule) {
       await this.loadWasmScript();
     }
 
-    if (!this.wasmModule) {
-      this.wasmModule = this.global.Module;
-    }
+    await sleep(100);
 
     this.storeFS(this.modelFileName, model);
-    this.instance = this.wasmModule.init(this.modelFileName);
+    this.instance = this.wasmModule!.init(this.modelFileName);
 
     return Promise.resolve();
   }
@@ -83,7 +84,7 @@ export class WhisperWasmService {
       throw new Error('WASM module not loaded');
     }
     if (!this.instance) {
-      throw new Error('WASM module not loaded');
+      throw new Error('WASM instance not loaded');
     }
     return this.wasmModule.full_default(this.instance, audioData, language, threads, translate);
   }

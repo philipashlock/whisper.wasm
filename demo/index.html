@@ -1,12 +1,179 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Whisper WASM Demo</title>
-</head>
-<body>
-    <h1>Whisper WASM Demo</h1>
-    <!-- <script type="module" src="dist/index.es.js"></script> -->
-</body>
+<!doctype html>
+<html lang="ru">
+  <body>
+    <div id="root"></div>
+
+    <script type="module">
+      import { h, render } from 'https://esm.sh/preact@10.22.0';
+      import { useState, useMemo } from 'https://esm.sh/preact@10.22.0/hooks';
+      import htm from 'https://esm.sh/htm@3.1.1';
+      import { WhisperWasmService } from '../dist/index.es.js';
+      import { ModelManager } from '../dist/index.es.js';
+      import { getAllModels } from '../dist/index.es.js';
+      
+      const html = htm.bind(h);
+
+      function App() {
+        const [wasmSupported, setWasmSupported] = useState(null);
+        const [availableModels] = useState(() => getAllModels());
+        const [selectedModel, setSelectedModel] = useState('base');
+        const [modelLoaded, setModelLoaded] = useState(false);
+        const [audioFile, setAudioFile] = useState(null);
+        const [transcription, setTranscription] = useState('');
+        const [status, setStatus] = useState('');
+        const [loading, setLoading] = useState(false);
+
+        const whisperService = useMemo(() => new WhisperWasmService(), []);
+        const modelManager = useMemo(() => new ModelManager(), []);
+
+        const checkWasmSupport = async () => {
+          try {
+            const supported = await whisperService.checkWasmSupport();
+            setWasmSupported(supported);
+            setStatus(supported ? 'WASM поддерживается' : 'WASM не поддерживается');
+          } catch (error) {
+            setStatus(`Ошибка: ${error.message}`);
+          }
+        };
+
+        const loadModel = async () => {
+          setLoading(true);
+          setStatus('Загрузка модели...');
+          console.log('Loading model:', selectedModel);
+          try {
+            const modelData = await modelManager.loadModel(selectedModel, true);
+            console.log('Model data loaded, size:', modelData.length);
+            await whisperService.loadWasmModule(modelData);
+            console.log('WASM module loaded successfully');
+            setModelLoaded(true);
+            setStatus(`Модель ${selectedModel} загружена успешно!`);
+          } catch (error) {
+            console.error('Error loading model:', error);
+            setStatus(`Ошибка загрузки модели: ${error.message}`);
+          }
+          setLoading(false);
+        };
+
+        const handleFileSelect = (event) => {
+          const file = event.target.files[0];
+          if (file) {
+            setAudioFile(file);
+            setStatus(`Файл ${file.name} выбран (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+          }
+        };
+
+        const transcribeAudio = async () => {
+          if (!modelLoaded || !audioFile) {
+            setStatus('Сначала загрузите модель и выберите аудио файл');
+            return;
+          }
+
+          setLoading(true);
+          setStatus('Транскрипция в процессе...');
+          
+          try {
+            // Создаем URL для аудио файла
+            const audioUrl = URL.createObjectURL(audioFile);
+            
+            // Создаем аудио элемент для декодирования
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const response = await fetch(audioUrl);
+            const arrayBuffer = await response.arrayBuffer();
+            
+            // Декодируем аудио в Float32Array
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            const audioData = audioBuffer.getChannelData(0); // Берем первый канал
+            
+            console.log('Audio decoded, length:', audioData.length, 'sample rate:', audioBuffer.sampleRate);
+            
+            const result = whisperService.transcribe(audioData, 'auto', 4, false);
+            setTranscription(result);
+            setStatus('Транскрипция завершена!');
+            
+            // Очищаем URL
+            URL.revokeObjectURL(audioUrl);
+          } catch (error) {
+            console.error('Transcription error:', error);
+            setStatus(`Ошибка транскрипции: ${error.message}`);
+          }
+          setLoading(false);
+        };
+
+        return html`
+          <div style="max-width: 800px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
+            <h1>Whisper.wasm Demo</h1>
+            
+            <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+              <h2>1. Проверка поддержки WASM</h2>
+              <button onClick=${checkWasmSupport} disabled=${loading}>
+                Проверить поддержку WASM
+              </button>
+              ${wasmSupported !== null && html`
+                <div style="margin-top: 10px; padding: 10px; background-color: ${wasmSupported ? '#d4edda' : '#f8d7da'}; color: ${wasmSupported ? '#155724' : '#721c24'}; border-radius: 3px;">
+                  WASM ${wasmSupported ? 'поддерживается' : 'не поддерживается'}
+                </div>
+              `}
+            </div>
+
+            <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+              <h2>2. Загрузка модели</h2>
+              <select value=${selectedModel} onChange=${(e) => setSelectedModel(e.target.value)} style="margin-right: 10px;">
+                ${availableModels.map(model => html`
+                  <option value=${model.id}>
+                    ${model.name} (${model.size}MB) - ${model.language === 'en' ? 'English' : 'Multilingual'}${model.quantized ? ' [Quantized]' : ''}
+                  </option>
+                `)}
+              </select>
+              <button onClick=${loadModel} disabled=${loading || !wasmSupported}>
+                Загрузить модель
+              </button>
+              ${modelLoaded && html`
+                <div style="margin-top: 10px; padding: 10px; background-color: #d4edda; color: #155724; border-radius: 3px;">
+                  Модель загружена!
+                </div>
+              `}
+            </div>
+
+            <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+              <h2>3. Загрузка аудио</h2>
+              <input type="file" accept="audio/*" onChange=${handleFileSelect} style="margin-bottom: 10px;" />
+              ${audioFile && html`
+                <div style="padding: 10px; background-color: #d4edda; color: #155724; border-radius: 3px;">
+                  Файл: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              `}
+            </div>
+
+            <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+              <h2>4. Транскрипция</h2>
+              <button onClick=${transcribeAudio} disabled=${loading || !modelLoaded || !audioFile}>
+                ${loading ? 'Обработка...' : 'Транскрибировать'}
+              </button>
+              <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                Debug: modelLoaded=${modelLoaded}, audioFile=${!!audioFile}, loading=${loading}
+              </div>
+              ${transcription && html`
+                <div style="margin-top: 10px;">
+                  <h3>Результат:</h3>
+                  <textarea 
+                    value=${transcription} 
+                    readonly 
+                    style="width: 100%; height: 100px; margin-top: 10px;"
+                  />
+                </div>
+              `}
+            </div>
+
+            ${status && html`
+              <div style="margin: 20px 0; padding: 10px; background-color: #d1ecf1; color: #0c5460; border-radius: 3px;">
+                ${status}
+              </div>
+            `}
+          </div>
+        `;
+      }
+
+      render(html`<${App}/>`, document.getElementById('root'));
+    </script>
+  </body>
 </html>
