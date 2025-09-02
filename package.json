@@ -1,0 +1,63 @@
+{
+  "name": "whisper.wasm",
+  "version": "1.0.0",
+  "description": "WebAssembly bindings for OpenAI Whisper speech recognition",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "wasm",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "npm run build:lib",
+    "build:lib": "vite build --mode library && node scripts/copy-wasm.js",
+    "build:demo": "vite build --mode demo",
+    "dev": "vite",
+    "dev:demo": "vite --mode demo",
+    "preview": "vite preview",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "prepare": "npm run build:lib",
+    "prepublishOnly": "npm run test && npm run build:lib"
+  },
+  "keywords": [
+    "whisper",
+    "speech-recognition",
+    "webassembly",
+    "wasm",
+    "openai",
+    "audio",
+    "transcription"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/emscripten": "^1.40.1",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.9.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "vite-plugin-dts": "^3.7.0"
+  },
+  "dependencies": {
+    "comlink": "^4.4.1",
+    "wasm-feature-detect": "^1.8.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/timur00kh/whisper.wasm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/timur00kh/whisper.wasm/issues"
+  },
+  "homepage": "https://github.com/timur00kh/whisper.wasm#readme"
+}
