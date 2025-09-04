@@ -150,8 +150,7 @@ export class WhisperWasmService {
 
     const { language, threads, translate } = { ...defaultOptions, ...options };
     const unsubscribe = this.bus.on('transcribe', (e) => {
-      console.log('transcribe', e.detail);
-      callback('test');
+      callback(e.detail);
     });
     const unsubscribeError = this.bus.on('transcribeError', () => {
       this.isTranscribing = false;
