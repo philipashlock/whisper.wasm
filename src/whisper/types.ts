@@ -13,6 +13,8 @@ export interface WhisperWasmModule extends WithPrefix<typeof FS, 'FS_'> {
     threads: number,
     translate: boolean,
   ) => string;
+  print: (e: string) => void
+  printErr: (e: string) => void
   // Другие методы модуля;
 }
 

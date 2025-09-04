@@ -17,10 +17,11 @@ docker build --target export-stage --progress=plain --output type=local,dest=./w
 echo "convert js files to modules"
 
 for file in ./wasm/*.js; do
-  echo "export default (function() {" > $file.tmp
-  cat $file >> $file.tmp
-  echo "return Module;})();" >> $file.tmp
-  mv $file.tmp $file
+  file_nojs="${file%.js}"
+  touch $file_nojs.mjs
+  echo "export default (function() {" > $file_nojs.mjs
+  cat $file >> $file_nojs.mjs
+  echo "return Module;})();" >> $file_nojs.mjs
   echo "$file converted"
 done
 

@@ -1,5 +1,5 @@
 # Multi-stage build for whisper.wasm
-FROM emscripten/emsdk:latest AS builder
+FROM emscripten/emsdk:4.0.14 AS builder
 
 # Set working directory
 WORKDIR /src

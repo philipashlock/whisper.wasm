@@ -24,8 +24,9 @@ export default defineConfig(({ mode }) => {
         },
         outDir: 'dist',
         // Копируем WASM файлы в dist
-        copyPublicDir: false,
-        assetsInclude: ['**/*.wasm', '**/*.js']
+        // copyPublicDir: false,
+        // assetsInclude: ['**/*.wasm', '**/*.js'],
+        assetsInlineLimit: 0
       },
       resolve: {
         alias: {
@@ -51,8 +52,9 @@ export default defineConfig(({ mode }) => {
           },
         },
         // Копируем WASM файлы в демо
-        copyPublicDir: false,
-        assetsInclude: ['**/*.wasm', '**/*.js']
+        // copyPublicDir: false,
+        assetsInclude: ['**/*.wasm', '**/*.js'],
+        assetsInlineLimit: 0
       },
       resolve: {
         alias: {

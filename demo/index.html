@@ -1,5 +1,8 @@
 <!doctype html>
 <html lang="ru">
+  <head>
+    <script src="./coi-serviceworker.js"></script>
+  </head>
   <body>
     <div id="root"></div>
 
@@ -10,6 +13,7 @@
       import { WhisperWasmService } from '../dist/index.es.js';
       import { ModelManager } from '../dist/index.es.js';
       import { getAllModels } from '../dist/index.es.js';
+      import { AudioHandler } from './audioHandler.js';
       
       const html = htm.bind(h);
 
@@ -25,6 +29,7 @@
 
         const whisperService = useMemo(() => new WhisperWasmService(), []);
         const modelManager = useMemo(() => new ModelManager(), []);
+        const audioHandler = useMemo(() => new AudioHandler(), []);
 
         const checkWasmSupport = async () => {
           try {
@@ -43,6 +48,7 @@
           try {
             const modelData = await modelManager.loadModel(selectedModel, true);
             console.log('Model data loaded, size:', modelData.length);
+            await whisperService.loadWasmScriptUnsafe();
             await whisperService.loadWasmModule(modelData);
             console.log('WASM module loaded successfully');
             setModelLoaded(true);
@@ -71,32 +77,32 @@
           setLoading(true);
           setStatus('Транскрипция в процессе...');
           
-          try {
-            // Создаем URL для аудио файла
-            const audioUrl = URL.createObjectURL(audioFile);
-            
-            // Создаем аудио элемент для декодирования
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const response = await fetch(audioUrl);
-            const arrayBuffer = await response.arrayBuffer();
-            
-            // Декодируем аудио в Float32Array
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            const audioData = audioBuffer.getChannelData(0); // Берем первый канал
-            
-            console.log('Audio decoded, length:', audioData.length, 'sample rate:', audioBuffer.sampleRate);
-            
-            const result = whisperService.transcribe(audioData, 'auto', 4, false);
-            setTranscription(result);
-            setStatus('Транскрипция завершена!');
-            
-            // Очищаем URL
-            URL.revokeObjectURL(audioUrl);
-          } catch (error) {
-            console.error('Transcription error:', error);
-            setStatus(`Ошибка транскрипции: ${error.message}`);
-          }
-          setLoading(false);
+          await audioHandler.loadAudio(
+            audioFile,
+            // onProgress
+            (message) => {
+              setStatus(message);
+            },
+            // onSuccess
+            async (audioData, audioInfo) => {
+              console.log('Audio processed:', audioInfo);
+              try {
+                const result = await whisperService.transcribe(audioData, (e) => console.log('whisperService.transcribe', e), { language: 'ru', threads: 25, translate: false });
+                setTranscription(result);
+                setStatus('Транскрипция завершена!');
+              } catch (error) {
+                console.error('Transcription error:', error);
+                setStatus(`Ошибка транскрипции: ${error.message}`);
+              }
+              setLoading(false);
+            },
+            // onError
+            (error) => {
+              console.error('Audio processing error:', error);
+              setStatus(`Ошибка обработки аудио: ${error}`);
+              setLoading(false);
+            }
+          );
         };
 
         return html`
