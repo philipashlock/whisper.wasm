@@ -35,6 +35,10 @@ class Bus extends EventTarget {
   }
 }
 
+interface WhisperWasmServiceOptions {
+  logLevel: 'info' | 'debug' | 'error';
+}
+
 
 export class WhisperWasmService {
   private wasmModule: WhisperWasmModule | null = null;
@@ -125,7 +129,6 @@ export class WhisperWasmService {
       this.wasmModule.FS_unlink(fname);
     } catch (e) {
       // ignore
-      console.info(e);
     }
 
     this.wasmModule.FS_createDataFile('/', fname, buf, true, true, true);
@@ -144,6 +147,10 @@ export class WhisperWasmService {
     }
     if (!this.instance) {
       throw new Error('WASM instance not loaded');
+    }
+
+    if (audioData.length > 16000 * 120) {
+      console.warn("It's not recommended to transcribe audio data that is longer than 120 seconds");
     }
 
     this.isTranscribing = true;
