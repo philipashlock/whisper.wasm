@@ -14,6 +14,7 @@
     "build": "npm run build:lib",
     "build:lib": "vite build --mode library",
     "build:demo": "vite build --mode demo",
+    "build:demo:github": "DEMO_BASE_PATH=/whisper.wasm/ vite build --mode demo",
     "dev": "vite",
     "dev:demo": "vite --mode demo",
     "preview": "vite preview",

@@ -123,7 +123,7 @@ jobs:
         run: npm run build:lib
 
       - name: Build demo
-        run: npm run build:demo
+        run: npm run build:demo:github
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

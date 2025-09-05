@@ -2,6 +2,17 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
 
+// Плагин для замены относительных путей на абсолютные с base
+function replaceRelativePathsPlugin(basePath: string) {
+  return {
+    name: 'replace-relative-paths',
+    transformIndexHtml(html) {
+      // Заменяем относительные пути на абсолютные с base
+      return html.replace(/src="\.\//g, `src="${basePath}`);
+    }
+  };
+}
+
 export default defineConfig(({ mode }) => {
   if (mode === 'library') {
     // Конфигурация для сборки библиотеки
@@ -42,8 +53,13 @@ export default defineConfig(({ mode }) => {
 
   if (mode === 'demo') {
     // Конфигурация для сборки демо
+    const basePath = process.env.DEMO_BASE_PATH || '/';
     return {
+      base: basePath,
       root: 'demo',
+      plugins: [
+        replaceRelativePathsPlugin(basePath)
+      ],
       build: {
         outDir: '../demo-dist',
         rollupOptions: {
