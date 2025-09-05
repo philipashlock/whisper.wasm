@@ -48,9 +48,34 @@ export class ModelManager {
   }
 
   /**
-   * Получает список доступных моделей
+   * Получает список доступных моделей с информацией о кэше
    */
-  getAvailableModels(): WhisperModel[] {
+  async getAvailableModels(): Promise<WhisperModel[]> {
+    const models = [...this.models];
+    
+    if (!this.cacheEnabled) {
+      return models;
+    }
+
+    try {
+      // Получаем список загруженных моделей из IndexedDB
+      const cachedModels = await this.getCachedModelNames();
+      
+      // Обогащаем массив моделей информацией о кэше
+      return models.map(model => ({
+        ...model,
+        cached: cachedModels.includes(model.id)
+      }));
+    } catch (error) {
+      console.error('Error checking cache status:', error);
+      return models;
+    }
+  }
+
+  /**
+   * Получает список доступных моделей без проверки кэша (синхронно)
+   */
+  getAvailableModelsSync(): WhisperModel[] {
     return [...this.models];
   }
 
@@ -114,6 +139,31 @@ export class ModelManager {
     } catch (error) {
       console.error('Error getting cached model:', error);
       return null;
+    }
+  }
+
+  /**
+   * Получает список имен моделей, загруженных в кэш
+   */
+  private async getCachedModelNames(): Promise<ModelID[]> {
+    try {
+      const db = await this.openIndexedDB();
+      const transaction = db.transaction(['models'], 'readonly');
+      const store = transaction.objectStore('models');
+      
+      return new Promise<ModelID[]>((resolve, reject) => {
+        const request = store.getAllKeys();
+        
+        request.onsuccess = () => {
+          const keys = request.result as ModelID[];
+          resolve(keys);
+        };
+        
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error('Error getting cached model names:', error);
+      return [];
     }
   }
 

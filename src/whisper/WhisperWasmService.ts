@@ -1,6 +1,7 @@
-
+import { LoggerLevelsType, Logger } from '../utils/Logger';
 import { simd } from 'wasm-feature-detect';
-import type { WhisperWasmModule } from './types';
+import type { WhisperWasmModule, WhisperWasmServiceCallback, WhisperWasmServiceCallbackParams } from './types';
+import { parseCueLine } from './parseCueLine';
 // import wasmScriptUrl from '@wasm/libmain.js?url'
 
 declare global {
@@ -36,7 +37,7 @@ class Bus extends EventTarget {
 }
 
 interface WhisperWasmServiceOptions {
-  logLevel: 'info' | 'debug' | 'error';
+  logLevel: LoggerLevelsType;
 }
 
 
@@ -46,8 +47,11 @@ export class WhisperWasmService {
   private modelFileName: string = 'whisper.bin';
   private isTranscribing: boolean = false;
   private bus = new Bus();
+  private logger: Logger;
 
-  constructor() {}
+  constructor(options: WhisperWasmServiceOptions = { logLevel: Logger.levels.ERROR }) {
+    this.logger = new Logger(options.logLevel, 'WhisperWasmService');
+  }
 
   async checkWasmSupport(): Promise<boolean> {
     return await simd();
@@ -57,12 +61,15 @@ export class WhisperWasmService {
     this.wasmModule = await (await import('@wasm/libmain.js')).default({
       print: (e: string) => {
         if (e.startsWith('[')) {
+          this.logger.info(e);
           this.bus.emit('transcribe', e);
         } else {
+          this.logger.debug(e);
           this.bus.emit('system_info', e);
         }
       },
       printErr: (e: string) => {
+        this.logger.warn(e);
         this.bus.emit('transcribeError', e);
       }
     });
@@ -73,13 +80,13 @@ export class WhisperWasmService {
       throw new Error('WASM is not supported');
     }
 
-    if(this.wasmModule) {
+    if (this.wasmModule) {
       this.wasmModule.FS_unlink(this.modelFileName);
       this.wasmModule.free();
     }
 
     // if (!this.wasmModule) {
-      await this.loadWasmScript();
+    await this.loadWasmScript();
     // }
 
     await sleep(100);
@@ -98,7 +105,7 @@ export class WhisperWasmService {
       const arrayBuffer = await fetch(modelUrl).then((response) => response.arrayBuffer());
       this.loadWasmModule(new Uint8Array(arrayBuffer));
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
       throw new Error('Failed to load WASM module');
     }
   }
@@ -120,9 +127,9 @@ export class WhisperWasmService {
 
   async transcribe(
     audioData: Float32Array,
-    callback: (transcription: string) => void,
+    callback: WhisperWasmServiceCallback,
     options: typeof defaultOptions = defaultOptions
-  ): Promise<void> {
+  ): Promise<{segments: WhisperWasmServiceCallbackParams[], transcribeDurationMs: number}> {
     if (this.isTranscribing) {
       throw new Error('Already transcribing');
     }
@@ -133,24 +140,48 @@ export class WhisperWasmService {
       throw new Error('WASM instance not loaded');
     }
 
-    if (audioData.length > 16000 * 120) {
-      console.warn("It's not recommended to transcribe audio data that is longer than 120 seconds");
+    const maxDuration = 120;
+    if (audioData.length > 16000 * maxDuration) {
+      this.logger.warn("It's not recommended to transcribe audio data that is longer than 120 seconds");
     }
 
     this.isTranscribing = true;
 
     const { language, threads, translate } = { ...defaultOptions, ...options };
-    const unsubscribe = this.bus.on('transcribe', (e) => {
-      callback(e.detail);
-    });
-    const unsubscribeError = this.bus.on('transcribeError', () => {
-      this.isTranscribing = false;
-      unsubscribe();
-      unsubscribeError();
-    });
+    const segments: WhisperWasmServiceCallbackParams[] = [];
 
-
+    const startTimestamp = Date.now();
     this.wasmModule.full_default(this.instance, audioData, language, threads, translate);
+
+    return await new Promise((resolve, reject) => {
+      const unsubscribe = this.bus.on('transcribe', (e) => {
+        const { startMs, endMs, text } = parseCueLine(e.detail);
+
+        const segment = {
+          timeStart: startMs,
+          timeEnd: endMs,
+          text: text,
+          raw: e.detail,
+        }
+        segments.push(segment);
+        callback(segment);
+      });
+      const unsubscribeError = this.bus.on('transcribeError', (e) => {
+        this.isTranscribing = false;
+        unsubscribe();
+        unsubscribeError();
+        this.logger.debug('Transcribe error', e.detail);
+        resolve({ segments, transcribeDurationMs: Date.now() - startTimestamp });
+      });
+
+      setTimeout(() => {
+        this.isTranscribing = false;
+        unsubscribe();
+        unsubscribeError();
+        this.logger.error('Transcribe timeout');
+        reject(new Error('Transcribe timeout'));
+      }, maxDuration * 2 * 1000);
+    });
   }
 }
 

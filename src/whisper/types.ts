@@ -26,3 +26,12 @@ export interface WasmModuleStatus {
   instance: number | null;
   currentModel: string | null;
 }
+
+export interface WhisperWasmServiceCallbackParams {
+  timeStart: number;
+  timeEnd: number;
+  text: string;
+  raw: string;
+}
+
+export type WhisperWasmServiceCallback = (p: WhisperWasmServiceCallbackParams) => void;

@@ -10,6 +10,7 @@ export interface WhisperModel {
   size: number; // в MB
   language: 'en' | 'multilingual';
   quantized: boolean;
+  cached?: boolean;
 }
 
 // Конфигурация моделей с ссылками на Hugging Face
