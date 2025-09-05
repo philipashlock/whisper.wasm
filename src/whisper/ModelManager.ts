@@ -1,5 +1,5 @@
-import type { WhisperWasmService } from './WhisperWasmService';
 import { getAllModels, getModelConfig, ModelID, WhisperModel } from './ModelConfig';
+import { Logger, LoggerLevelsType } from '../utils/Logger';
 
 export interface ModelListConfig {
   models: WhisperModel[];
@@ -7,14 +7,31 @@ export interface ModelListConfig {
   maxCacheSize?: number; // в байтах
 }
 
+export interface ProgressCallback {
+  (progress: number): void;
+}
+
+export interface ModelManagerOptions {
+  logLevel: LoggerLevelsType;
+}
+
 export class ModelManager {
   private cacheEnabled: boolean = true;
   private models = getAllModels();
+  private logger: Logger;
+
+  constructor(options: ModelManagerOptions = { logLevel: Logger.levels.ERROR }) {
+    this.logger = new Logger(options.logLevel, 'ModelManager');
+  }
 
   /**
    * Загружает модель по имени
    */
-  async loadModel(modelId: ModelID, saveToIndexedDB: boolean = true): Promise<Uint8Array> {
+  async loadModel(
+    modelId: ModelID, 
+    saveToIndexedDB: boolean = true, 
+    progressCallback?: ProgressCallback
+  ): Promise<Uint8Array> {
     const model = getModelConfig(modelId);
     if (!model) {
       throw new Error(`Model ${modelId} not found in config`);
@@ -24,27 +41,191 @@ export class ModelManager {
     if (this.cacheEnabled && saveToIndexedDB) {
       const cachedModel = await this.getCachedModel(modelId);
       if (cachedModel) {
-        console.log(`Model ${modelId} loaded from cache`);
+        this.logger.info(`Model ${modelId} loaded from cache`);
+        if (progressCallback) progressCallback(100);
         return cachedModel;
       }
     }
 
     // Загружаем модель по URL
-    console.log(`Loading model ${modelId} from ${model.url}`);
+    this.logger.info(`Loading model ${modelId} from ${model.url}`);
     const response = await fetch(model.url);
     if (!response.ok) {
       throw new Error(`Failed to load model: ${response.statusText}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const modelData = new Uint8Array(arrayBuffer);
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 0;
+    let loaded = 0;
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Response body is not readable');
+    }
+
+    const chunks: Uint8Array[] = [];
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        chunks.push(value);
+        loaded += value.length;
+        
+        if (progressCallback && total > 0) {
+          const progress = Math.round((loaded / total) * 100);
+          progressCallback(progress);
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    // Объединяем все чанки в один массив
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const modelData = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      modelData.set(chunk, offset);
+      offset += chunk.length;
+    }
 
     // Сохраняем в IndexedDB если нужно
     if (this.cacheEnabled && saveToIndexedDB) {
       await this.saveModelToCache(modelId, modelData);
     }
 
+    if (progressCallback) progressCallback(100);
     return modelData;
+  }
+
+  /**
+   * Загружает WASM-модель по URL и сохраняет её в IndexedDB, используя сам URL в качестве ключа.
+   */
+  async loadModelByUrl(modelUrl: string, progressCallback?: ProgressCallback): Promise<Uint8Array> {
+    try {
+      // Сначала пробуем получить из кэша по URL
+      if (this.cacheEnabled) {
+        const cached = await this.getCachedModelByUrl(modelUrl);
+        if (cached) {
+          this.logger.info(`WASM module loaded from cache by URL: ${modelUrl}`);
+          if (progressCallback) progressCallback(100);
+          return cached;
+        }
+      }
+
+      // Если нет в кэше, загружаем по сети
+      this.logger.info(`Loading WASM module from URL: ${modelUrl}`);
+      const response = await fetch(modelUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to load WASM module: ${response.statusText}`);
+      }
+
+      const contentLength = response.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+      let loaded = 0;
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
+
+      const chunks: Uint8Array[] = [];
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          chunks.push(value);
+          loaded += value.length;
+          
+          if (progressCallback && total > 0) {
+            const progress = Math.round((loaded / total) * 100);
+            progressCallback(progress);
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Объединяем все чанки в один массив
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const modelData = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        modelData.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Сохраняем в кэш по URL
+      if (this.cacheEnabled) {
+        await this.saveModelToCacheByUrl(modelUrl, modelData);
+      }
+
+      if (progressCallback) progressCallback(100);
+      return modelData;
+    } catch (error) {
+      this.logger.error(error);
+      throw new Error('Failed to load WASM module');
+    }
+  }
+
+  /**
+   * Получить модель из IndexedDB по URL (ключ — сам URL)
+   */
+  private async getCachedModelByUrl(modelUrl: string): Promise<Uint8Array | null> {
+    try {
+      const db = await this.openIndexedDB();
+      const transaction = db.transaction(['modelsByUrl'], 'readonly');
+      const store = transaction.objectStore('modelsByUrl');
+      
+      return new Promise<Uint8Array | null>((resolve, reject) => {
+        const request = store.get(modelUrl);
+        
+        request.onsuccess = () => {
+          const result = request.result;
+          if (result && result.data) {
+            resolve(result.data);
+          } else {
+            resolve(null);
+          }
+        };
+        
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      this.logger.error('Error reading model from cache by URL:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Сохраняет модель в IndexedDB по URL (ключ — сам URL)
+   */
+  private async saveModelToCacheByUrl(modelUrl: string, modelData: Uint8Array): Promise<void> {
+    try {
+      const db = await this.openIndexedDB();
+      const transaction = db.transaction(['modelsByUrl'], 'readwrite');
+      const store = transaction.objectStore('modelsByUrl');
+      
+      await new Promise<void>((resolve, reject) => {
+        const request = store.put({
+          url: modelUrl,
+          data: modelData,
+          timestamp: Date.now(),
+          size: modelData.length
+        });
+        
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+      
+      this.logger.info(`Model saved to cache by URL: ${modelUrl}`);
+    } catch (error) {
+      this.logger.error('Error saving model to cache by URL:', error);
+    }
   }
 
   /**
@@ -67,7 +248,7 @@ export class ModelManager {
         cached: cachedModels.includes(model.id)
       }));
     } catch (error) {
-      console.error('Error checking cache status:', error);
+      this.logger.error('Error checking cache status:', error);
       return models;
     }
   }
@@ -107,9 +288,9 @@ export class ModelManager {
         request.onerror = () => reject(request.error);
       });
       
-      console.log(`Model ${modelName} saved to cache`);
+      this.logger.info(`Model ${modelName} saved to cache`);
     } catch (error) {
-      console.error('Error saving model to cache:', error);
+      this.logger.error('Error saving model to cache:', error);
     }
   }
 
@@ -137,7 +318,7 @@ export class ModelManager {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Error getting cached model:', error);
+      this.logger.error('Error getting cached model:', error);
       return null;
     }
   }
@@ -162,7 +343,7 @@ export class ModelManager {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Error getting cached model names:', error);
+      this.logger.error('Error getting cached model names:', error);
       return [];
     }
   }
@@ -172,15 +353,24 @@ export class ModelManager {
    */
   private async openIndexedDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('WhisperModels', 1);
+      const request = indexedDB.open('WhisperModels', 2);
       
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
       
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        
+        // Создаем object store для моделей по ID
         if (!db.objectStoreNames.contains('models')) {
           const store = db.createObjectStore('models', { keyPath: 'name' });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          store.createIndex('size', 'size', { unique: false });
+        }
+        
+        // Создаем object store для моделей по URL
+        if (!db.objectStoreNames.contains('modelsByUrl')) {
+          const store = db.createObjectStore('modelsByUrl', { keyPath: 'url' });
           store.createIndex('timestamp', 'timestamp', { unique: false });
           store.createIndex('size', 'size', { unique: false });
         }
@@ -194,18 +384,27 @@ export class ModelManager {
   async clearCache(): Promise<void> {
     try {
       const db = await this.openIndexedDB();
-      const transaction = db.transaction(['models'], 'readwrite');
-      const store = transaction.objectStore('models');
+      const transaction = db.transaction(['models', 'modelsByUrl'], 'readwrite');
       
+      // Очищаем store для моделей по ID
+      const modelsStore = transaction.objectStore('models');
       await new Promise<void>((resolve, reject) => {
-        const request = store.clear();
+        const request = modelsStore.clear();
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
       
-      console.log('Model cache cleared');
+      // Очищаем store для моделей по URL
+      const modelsByUrlStore = transaction.objectStore('modelsByUrl');
+      await new Promise<void>((resolve, reject) => {
+        const request = modelsByUrlStore.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+      
+      this.logger.info('Model cache cleared');
     } catch (error) {
-      console.error('Error clearing cache:', error);
+      this.logger.error('Error clearing cache:', error);
     }
   }
 
@@ -230,7 +429,7 @@ export class ModelManager {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Error getting cache info:', error);
+      this.logger.error('Error getting cache info:', error);
       return { count: 0, totalSize: 0 };
     }
   }

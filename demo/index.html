@@ -26,6 +26,7 @@
         const [transcription, setTranscription] = useState('');
         const [status, setStatus] = useState('');
         const [loading, setLoading] = useState(false);
+        const [progress, setProgress] = useState(0);
 
         const whisperService = useMemo(() => new WhisperWasmService({ logLevel: 0 }), []);
         const modelManager = useMemo(() => new ModelManager(), []);
@@ -46,6 +47,8 @@
         // Загружаем модели при инициализации
         useEffect(() => {
           loadAvailableModels();
+          window.modelManager = modelManager;
+
         }, []);
 
         const checkWasmSupport = async () => {
@@ -64,10 +67,18 @@
 
         const loadModel = async () => {
           setLoading(true);
+          setProgress(0);
           setStatus('Загрузка модели...');
           console.log('Loading model:', selectedModel);
           try {
-            const modelData = await modelManager.loadModel(selectedModel, true);
+            const modelData = await modelManager.loadModel(
+              selectedModel, 
+              true, 
+              (progress) => {
+                setProgress(progress);
+                setStatus(`Загрузка модели... ${progress}%`);
+              }
+            );
             console.log('Model data loaded, size:', modelData.length);
             // await whisperService.loadWasmScriptUnsafe();
             await whisperService.loadWasmModule(modelData);
@@ -177,6 +188,28 @@
               }} style="margin-left: 10px;" disabled=${loading}>
                 🗑️ Очистить кэш
               </button>
+              ${loading && progress > 0 && html`
+                <div style="margin-top: 10px;">
+                  <div style="width: 100%; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
+                    <div 
+                      style="
+                        width: ${progress}%; 
+                        height: 20px; 
+                        background-color: #4CAF50; 
+                        transition: width 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-size: 12px;
+                        font-weight: bold;
+                      "
+                    >
+                      ${progress}%
+                    </div>
+                  </div>
+                </div>
+              `}
               <div style="font-size: 12px; color: #666; margin-top: 5px;">
                 ✅ = закэшировано, ⬇️ = нужно загрузить
               </div>

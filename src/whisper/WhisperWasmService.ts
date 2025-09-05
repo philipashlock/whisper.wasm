@@ -97,18 +97,6 @@ export class WhisperWasmService {
     return Promise.resolve();
   }
 
-  /**
-   * @deprecated
-   */
-  async loadWasmModuleByUrl(modelUrl: string) {
-    try {
-      const arrayBuffer = await fetch(modelUrl).then((response) => response.arrayBuffer());
-      this.loadWasmModule(new Uint8Array(arrayBuffer));
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Failed to load WASM module');
-    }
-  }
 
   storeFS(fname: string, buf: Uint8Array) {
     if (!this.wasmModule) {
