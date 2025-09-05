@@ -2,115 +2,135 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
-    types: [ published ]
+    types: [published]
 
 jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build WASM files
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: export-stage
+          outputs: type=local,dest=./wasm
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Fix worker import paths
+        run: |
+          for file in ./wasm/*.js; do
+            filename=$(basename "$file")
+            echo "Fixing $filename"
+            node -e "
+          const fs = require('fs');
+          const content = fs.readFileSync('$file', 'utf8');
+          fs.writeFileSync('$file', content.replace(/$filename/g, ''));
+          "
+          done
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-wasm-files
+          path: wasm/
+          retention-days: 30
+
   test:
     runs-on: ubuntu-latest
-    
+    needs: build-wasm
+
     strategy:
       matrix:
         node-version: [18.x, 20.x]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Run linter
-      run: npm run lint
-      
-    - name: Run tests
-      run: npm test
-      
-    - name: Build project
-      run: npm run build
-      
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
-      if: matrix.node-version == '20.x'
-      with:
-        file: ./coverage/lcov.info
-        flags: unittests
-        name: codecov-umbrella
 
-  build-wasm:
-    runs-on: ubuntu-latest
-    needs: test
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Build WASM files
-      run: |
-        docker build -t whisper-wasm-builder .
-        docker create --name temp-container whisper-wasm-builder
-        docker cp temp-container:/wasm ./wasm
-        docker rm temp-container
-        
-    - name: Upload WASM artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: whisper-wasm-files
-        path: wasm/
-        retention-days: 30
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: whisper-wasm-files
+          path: wasm/
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: matrix.node-version == '20.x'
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
 
   publish:
     runs-on: ubuntu-latest
     needs: [test, build-wasm]
     if: github.event_name == 'release'
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        registry-url: 'https://registry.npmjs.org'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Download WASM artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: whisper-wasm-files
-        path: wasm/
-        
-    - name: Build project
-      run: npm run build
-      
-    - name: Publish to NPM
-      run: npm publish
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.event.release.tag_name }}
-        release_name: ${{ github.event.release.name }}
-        body: ${{ github.event.release.body }}
-        draft: false
-        prerelease: false
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: whisper-wasm-files
+          path: wasm/
+
+      - name: Build project
+        run: npm run build
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          release_name: ${{ github.event.release.name }}
+          body: ${{ github.event.release.body }}
+          draft: false
+          prerelease: false
