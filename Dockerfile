@@ -20,7 +20,8 @@ RUN mkdir build-em
 WORKDIR /src/whisper.cpp/build-em
 
 # Build whisper.wasm
-RUN emcmake cmake ..
+# ENV EMCC_CFLAGS="-sMODULARIZE=1 -sEXPORT_ES6=1" 
+RUN emcmake cmake .. -DCMAKE_EXE_LINKER_FLAGS="-sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web"
 
 RUN make -j
 

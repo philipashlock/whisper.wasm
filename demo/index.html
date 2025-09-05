@@ -48,7 +48,7 @@
           try {
             const modelData = await modelManager.loadModel(selectedModel, true);
             console.log('Model data loaded, size:', modelData.length);
-            await whisperService.loadWasmScriptUnsafe();
+            // await whisperService.loadWasmScriptUnsafe();
             await whisperService.loadWasmModule(modelData);
             console.log('WASM module loaded successfully');
             setModelLoaded(true);

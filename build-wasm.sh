@@ -9,20 +9,16 @@ rm -rf ./wasm
 # Build the Docker image
 docker build --target export-stage --progress=plain --output type=local,dest=./wasm -t  whisper-wasm-builder . 
 
-
-# Note: It is recommended to use specific Emscripten build flags to generate ES6 modules directly,
-# such as -sEXPORT_ES6=1 and -sMODULARIZE=1. Consider updating the build process to use these options.
-# TODO: Refactor the build to output ES6 modules from Emscripten instead of wrapping manually.
-
-echo "convert js files to modules"
+echo "fix worker import path"
 
 for file in ./wasm/*.js; do
-  file_nojs="${file%.js}"
-  touch $file_nojs.mjs
-  echo "export default (function() {" > $file_nojs.mjs
-  cat $file >> $file_nojs.mjs
-  echo "return Module;})();" >> $file_nojs.mjs
-  echo "$file converted"
+  filename=$(basename "$file")
+  echo $filename
+  node -e "
+const fs = require('fs');
+const content = fs.readFileSync('$file', 'utf8');
+fs.writeFileSync('$file', content.replace(/$filename/g, ''));
+"
 done
 
 echo "Build complete! WASM files are in ./wasm directory"

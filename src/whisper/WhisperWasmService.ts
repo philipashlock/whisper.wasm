@@ -1,7 +1,7 @@
 
 import { simd } from 'wasm-feature-detect';
 import type { WhisperWasmModule } from './types';
-import wasmScriptUrl from '@wasm/libmain.js?url'
+// import wasmScriptUrl from '@wasm/libmain.js?url'
 
 declare global {
   interface Window {
@@ -54,21 +54,7 @@ export class WhisperWasmService {
   }
 
   async loadWasmScript(): Promise<void> {
-    this.wasmModule = (await import('@wasm/libmain.mjs')).default;
-  }
-
-  async loadWasmScriptUnsafe(): Promise<void> {
-    if (!document) {
-      throw new Error('');
-    }
-
-    const script = document.createElement('script');
-    script.src = wasmScriptUrl;
-    script.async = true;
-    // script.onerror = () => {throw new Error('Failed to load WASM script')};
-
-    // @ts-ignore
-    window.Module = {
+    this.wasmModule = await (await import('@wasm/libmain.js')).default({
       print: (e: string) => {
         if (e.startsWith('[')) {
           this.bus.emit('transcribe', e);
@@ -79,14 +65,7 @@ export class WhisperWasmService {
       printErr: (e: string) => {
         this.bus.emit('transcribeError', e);
       }
-    }
-    
-    document.head.appendChild(script);
-    await new Promise((resolve, reject) => {
-      script.onload = resolve;
-      script.onerror = reject;
     });
-    this.wasmModule = window.Module;
   }
 
   async loadWasmModule(model: Uint8Array): Promise<void> {
@@ -94,9 +73,14 @@ export class WhisperWasmService {
       throw new Error('WASM is not supported');
     }
 
-    if (!this.wasmModule) {
-      await this.loadWasmScript();
+    if(this.wasmModule) {
+      this.wasmModule.FS_unlink(this.modelFileName);
+      this.wasmModule.free();
     }
+
+    // if (!this.wasmModule) {
+      await this.loadWasmScript();
+    // }
 
     await sleep(100);
 

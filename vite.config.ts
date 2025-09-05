@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
         outDir: 'dist',
         // Копируем WASM файлы в dist
         // copyPublicDir: false,
-        // assetsInclude: ['**/*.wasm', '**/*.js'],
+        assetsInclude: ['**/*.wasm', '**/*.js'],
         assetsInlineLimit: 0
       },
       resolve: {
@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
       },
       // Настройки для обработки WASM файлов
       optimizeDeps: {
-        exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
+        // exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
       }
     };
   }
@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => {
       },
       // Настройки для обработки WASM файлов
       optimizeDeps: {
-        exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
+        // exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
       }
     };
   }
