@@ -142,12 +142,17 @@ export function getModelInfo(modelId: ModelID): WhisperModel | null {
   const config = MODEL_CONFIG[modelId];
   if (!config) return null;
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { url, ...modelInfo } = config;
   return modelInfo;
 }
 
 export function getAllModels(): WhisperModel[] {
-  return Object.values(MODEL_CONFIG).map(({ url, ...modelInfo }) => modelInfo);
+  return Object.values(MODEL_CONFIG).map(({ url, ...modelInfo }) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    void url; // Suppress unused variable warning
+    return modelInfo;
+  });
 }
 
 export function getModelConfig(modelId: ModelID) {

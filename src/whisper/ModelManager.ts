@@ -66,16 +66,19 @@ export class ModelManager {
     const chunks: Uint8Array[] = [];
     
     try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      let done = false;
+      while (!done) {
+        const result = await reader.read();
+        done = result.done;
         
-        chunks.push(value);
-        loaded += value.length;
-        
-        if (progressCallback && total > 0) {
-          const progress = Math.round((loaded / total) * 100);
-          progressCallback(progress);
+        if (!done && result.value) {
+          chunks.push(result.value);
+          loaded += result.value.length;
+          
+          if (progressCallback && total > 0) {
+            const progress = Math.round((loaded / total) * 100);
+            progressCallback(progress);
+          }
         }
       }
     } finally {
@@ -134,16 +137,19 @@ export class ModelManager {
       const chunks: Uint8Array[] = [];
       
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        let done = false;
+        while (!done) {
+          const result = await reader.read();
+          done = result.done;
           
-          chunks.push(value);
-          loaded += value.length;
-          
-          if (progressCallback && total > 0) {
-            const progress = Math.round((loaded / total) * 100);
-            progressCallback(progress);
+          if (!done && result.value) {
+            chunks.push(result.value);
+            loaded += result.value.length;
+            
+            if (progressCallback && total > 0) {
+              const progress = Math.round((loaded / total) * 100);
+              progressCallback(progress);
+            }
           }
         }
       } finally {
