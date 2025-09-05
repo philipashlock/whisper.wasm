@@ -32,9 +32,9 @@
     <div id="root"></div>
 
     <script type="module">
-      import { h, render } from 'https://esm.sh/preact@10.22.0';
-      import { useState, useMemo, useEffect } from 'https://esm.sh/preact@10.22.0/hooks';
-      import htm from 'https://esm.sh/htm@3.1.1';
+      import { h, render } from "preact";
+      import { useState, useMemo, useEffect } from 'preact/hooks';
+      import htm from 'htm';
       import { WhisperWasmService } from '../dist/index.es.js';
       import { ModelManager } from '../dist/index.es.js';
       import { getAllModels } from '../dist/index.es.js';
