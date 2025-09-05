@@ -154,21 +154,23 @@ export class WhisperWasmService {
         segments.push(segment);
         callback(segment);
       });
-      const unsubscribeError = this.bus.on('transcribeError', (e) => {
-        this.isTranscribing = false;
-        unsubscribe();
-        unsubscribeError();
-        this.logger.debug('Transcribe error', e.detail);
-        resolve({ segments, transcribeDurationMs: Date.now() - startTimestamp });
-      });
 
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         this.isTranscribing = false;
         unsubscribe();
         unsubscribeError();
         this.logger.error('Transcribe timeout');
         reject(new Error('Transcribe timeout'));
       }, maxDuration * 2 * 1000);
+
+      const unsubscribeError = this.bus.on('transcribeError', (e) => {
+        this.isTranscribing = false;
+        unsubscribe();
+        unsubscribeError();
+        clearTimeout(timeout);
+        this.logger.debug('Transcribe error', e.detail);
+        resolve({ segments, transcribeDurationMs: Date.now() - startTimestamp });
+      });
     });
   }
 }
