@@ -247,7 +247,7 @@
 
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
               <h2>3. Загрузка аудио</h2>
-              <input type="file" accept="audio/*" onChange=${handleFileSelect} style="margin-bottom: 10px;" />
+              <input type="file" accept="*/*" onChange=${handleFileSelect} style="margin-bottom: 10px;" />
               ${audioFile && html`
                 <div style="padding: 10px; background-color: #d4edda; color: #155724; border-radius: 3px;">
                   Файл: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)
