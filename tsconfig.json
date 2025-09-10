@@ -22,14 +22,6 @@
       "@wasm/*": ["wasm/*"]
     }
   },
-  "include": [
-    "src/**/*",
-    "src/whisper/wasm-module.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "include": ["src/**/*", "src/whisper/wasm-module.d.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

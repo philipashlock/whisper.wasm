@@ -28,9 +28,9 @@ export class ModelManager {
    * Загружает модель по имени
    */
   async loadModel(
-    modelId: ModelID, 
-    saveToIndexedDB: boolean = true, 
-    progressCallback?: ProgressCallback
+    modelId: ModelID,
+    saveToIndexedDB: boolean = true,
+    progressCallback?: ProgressCallback,
   ): Promise<Uint8Array> {
     const model = getModelConfig(modelId);
     if (!model) {
@@ -64,17 +64,17 @@ export class ModelManager {
     }
 
     const chunks: Uint8Array[] = [];
-    
+
     try {
       let done = false;
       while (!done) {
         const result = await reader.read();
         done = result.done;
-        
+
         if (!done && result.value) {
           chunks.push(result.value);
           loaded += result.value.length;
-          
+
           if (progressCallback && total > 0) {
             const progress = Math.round((loaded / total) * 100);
             progressCallback(progress);
@@ -135,17 +135,17 @@ export class ModelManager {
       }
 
       const chunks: Uint8Array[] = [];
-      
+
       try {
         let done = false;
         while (!done) {
           const result = await reader.read();
           done = result.done;
-          
+
           if (!done && result.value) {
             chunks.push(result.value);
             loaded += result.value.length;
-            
+
             if (progressCallback && total > 0) {
               const progress = Math.round((loaded / total) * 100);
               progressCallback(progress);
@@ -186,10 +186,10 @@ export class ModelManager {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['modelsByUrl'], 'readonly');
       const store = transaction.objectStore('modelsByUrl');
-      
+
       return new Promise<Uint8Array | null>((resolve, reject) => {
         const request = store.get(modelUrl);
-        
+
         request.onsuccess = () => {
           const result = request.result;
           if (result && result.data) {
@@ -198,7 +198,7 @@ export class ModelManager {
             resolve(null);
           }
         };
-        
+
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -215,19 +215,19 @@ export class ModelManager {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['modelsByUrl'], 'readwrite');
       const store = transaction.objectStore('modelsByUrl');
-      
+
       await new Promise<void>((resolve, reject) => {
         const request = store.put({
           url: modelUrl,
           data: modelData,
           timestamp: Date.now(),
-          size: modelData.length
+          size: modelData.length,
         });
-        
+
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
-      
+
       this.logger.info(`Model saved to cache by URL: ${modelUrl}`);
     } catch (error) {
       this.logger.error('Error saving model to cache by URL:', error);
@@ -239,7 +239,7 @@ export class ModelManager {
    */
   async getAvailableModels(): Promise<WhisperModel[]> {
     const models = [...this.models];
-    
+
     if (!this.cacheEnabled) {
       return models;
     }
@@ -247,11 +247,11 @@ export class ModelManager {
     try {
       // Получаем список загруженных моделей из IndexedDB
       const cachedModels = await this.getCachedModelNames();
-      
+
       // Обогащаем массив моделей информацией о кэше
-      return models.map(model => ({
+      return models.map((model) => ({
         ...model,
-        cached: cachedModels.includes(model.id)
+        cached: cachedModels.includes(model.id),
       }));
     } catch (error) {
       this.logger.error('Error checking cache status:', error);
@@ -281,19 +281,19 @@ export class ModelManager {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['models'], 'readwrite');
       const store = transaction.objectStore('models');
-      
+
       await new Promise<void>((resolve, reject) => {
         const request = store.put({
           name: modelName,
           data: modelData,
           timestamp: Date.now(),
-          size: modelData.length
+          size: modelData.length,
         });
-        
+
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
-      
+
       this.logger.info(`Model ${modelName} saved to cache`);
     } catch (error) {
       this.logger.error('Error saving model to cache:', error);
@@ -308,10 +308,10 @@ export class ModelManager {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['models'], 'readonly');
       const store = transaction.objectStore('models');
-      
+
       return new Promise<Uint8Array | null>((resolve, reject) => {
         const request = store.get(modelName);
-        
+
         request.onsuccess = () => {
           const result = request.result;
           if (result && result.data) {
@@ -320,7 +320,7 @@ export class ModelManager {
             resolve(null);
           }
         };
-        
+
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -337,15 +337,15 @@ export class ModelManager {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['models'], 'readonly');
       const store = transaction.objectStore('models');
-      
+
       return new Promise<ModelID[]>((resolve, reject) => {
         const request = store.getAllKeys();
-        
+
         request.onsuccess = () => {
           const keys = request.result as ModelID[];
           resolve(keys);
         };
-        
+
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -360,20 +360,20 @@ export class ModelManager {
   private async openIndexedDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('WhisperModels', 2);
-      
+
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
-      
+
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        
+
         // Создаем object store для моделей по ID
         if (!db.objectStoreNames.contains('models')) {
           const store = db.createObjectStore('models', { keyPath: 'name' });
           store.createIndex('timestamp', 'timestamp', { unique: false });
           store.createIndex('size', 'size', { unique: false });
         }
-        
+
         // Создаем object store для моделей по URL
         if (!db.objectStoreNames.contains('modelsByUrl')) {
           const store = db.createObjectStore('modelsByUrl', { keyPath: 'url' });
@@ -391,7 +391,7 @@ export class ModelManager {
     try {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['models', 'modelsByUrl'], 'readwrite');
-      
+
       // Очищаем store для моделей по ID
       const modelsStore = transaction.objectStore('models');
       await new Promise<void>((resolve, reject) => {
@@ -399,7 +399,7 @@ export class ModelManager {
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
-      
+
       // Очищаем store для моделей по URL
       const modelsByUrlStore = transaction.objectStore('modelsByUrl');
       await new Promise<void>((resolve, reject) => {
@@ -407,7 +407,7 @@ export class ModelManager {
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
-      
+
       this.logger.info('Model cache cleared');
     } catch (error) {
       this.logger.error('Error clearing cache:', error);
@@ -422,16 +422,16 @@ export class ModelManager {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['models'], 'readonly');
       const store = transaction.objectStore('models');
-      
+
       return new Promise((resolve, reject) => {
         const request = store.getAll();
-        
+
         request.onsuccess = () => {
           const models = request.result;
           const totalSize = models.reduce((sum, model) => sum + (model.size || 0), 0);
           resolve({ count: models.length, totalSize });
         };
-        
+
         request.onerror = () => reject(request.error);
       });
     } catch (error) {

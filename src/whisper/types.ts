@@ -13,9 +13,9 @@ export interface WhisperWasmModule extends WithPrefix<typeof FS, 'FS_'> {
     threads: number,
     translate: boolean,
   ) => string;
-  print: (e: string) => void
-  printErr: (e: string) => void
-  free: () => void
+  print: (e: string) => void;
+  printErr: (e: string) => void;
+  free: () => void;
   // Другие методы модуля;
 }
 
@@ -35,3 +35,13 @@ export interface WhisperWasmServiceCallbackParams {
 }
 
 export type WhisperWasmServiceCallback = (p: WhisperWasmServiceCallbackParams) => void;
+
+export const whisperWasmTranscriptionDefaultOptions = {
+  language: 'auto',
+  threads: 4,
+  translate: false,
+} as const;
+
+export type WhisperWasmTranscriptionOptions = Partial<
+  typeof whisperWasmTranscriptionDefaultOptions
+>;

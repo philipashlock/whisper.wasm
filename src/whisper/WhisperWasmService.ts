@@ -1,23 +1,25 @@
 import { LoggerLevelsType, Logger } from '../utils/Logger';
 import { simd } from 'wasm-feature-detect';
-import type { WhisperWasmModule, WhisperWasmServiceCallback, WhisperWasmServiceCallbackParams } from './types';
+import type {
+  WhisperWasmModule,
+  WhisperWasmServiceCallback,
+  WhisperWasmServiceCallbackParams,
+  WhisperWasmTranscriptionOptions,
+} from './types';
+import { whisperWasmTranscriptionDefaultOptions } from './types';
 import { parseCueLine } from './parseCueLine';
 // import wasmScriptUrl from '@wasm/libmain.js?url'
 
+// this is just for debugging
 declare global {
   interface Window {
     Module: WhisperWasmModule;
     WhisperWasmService: WhisperWasmService;
   }
 }
-const defaultOptions = {
-  language: 'auto',
-  threads: 4,
-  translate: false,
-}
 
 function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface TranscribeEvent extends Event {
@@ -26,7 +28,7 @@ interface TranscribeEvent extends Event {
 
 type TranscribeEventType = 'system_info' | 'transcribe' | 'transcribeError';
 
-class Bus extends EventTarget {
+class TranscriptionEventBus extends EventTarget {
   on(type: TranscribeEventType, handler: (event: TranscribeEvent) => void) {
     this.addEventListener(type, handler as EventListener);
     return () => this.removeEventListener(type, handler as EventListener);
@@ -37,20 +39,23 @@ class Bus extends EventTarget {
 }
 
 interface WhisperWasmServiceOptions {
-  logLevel: LoggerLevelsType;
+  logLevel?: LoggerLevelsType;
+  init?: boolean;
 }
-
 
 export class WhisperWasmService {
   private wasmModule: WhisperWasmModule | null = null;
   private instance: number | null = null;
   private modelFileName: string = 'whisper.bin';
   private isTranscribing: boolean = false;
-  private bus = new Bus();
+  private bus = new TranscriptionEventBus();
   private logger: Logger;
 
-  constructor(options: WhisperWasmServiceOptions = { logLevel: Logger.levels.ERROR }) {
+  constructor(options: WhisperWasmServiceOptions = { logLevel: Logger.levels.ERROR, init: false }) {
     this.logger = new Logger(options.logLevel, 'WhisperWasmService');
+    if (options.init) {
+      this.loadWasmScript();
+    }
   }
 
   async checkWasmSupport(): Promise<boolean> {
@@ -58,8 +63,11 @@ export class WhisperWasmService {
   }
 
   async loadWasmScript(): Promise<void> {
-    this.wasmModule = await (await import('@wasm/libmain.js')).default({
-      print: (e: string) => {
+    this.wasmModule = await (
+      await import('@wasm/libmain.js')
+    ).default({
+      print: (e: string, ...rest: any[]) => {
+        this.logger.debug(rest);
         if (e.startsWith('[')) {
           this.logger.info(e);
           this.bus.emit('transcribe', e);
@@ -68,10 +76,11 @@ export class WhisperWasmService {
           this.bus.emit('system_info', e);
         }
       },
-      printErr: (e: string) => {
+      printErr: (e: string, ...rest: any[]) => {
+        this.logger.debug(rest);
         this.logger.warn(e);
         this.bus.emit('transcribeError', e);
-      }
+      },
     });
   }
 
@@ -97,7 +106,6 @@ export class WhisperWasmService {
     return Promise.resolve();
   }
 
-
   storeFS(fname: string, buf: Uint8Array) {
     if (!this.wasmModule) {
       throw new Error('WASM module not loaded');
@@ -115,9 +123,9 @@ export class WhisperWasmService {
 
   async transcribe(
     audioData: Float32Array,
-    callback: WhisperWasmServiceCallback,
-    options: typeof defaultOptions = defaultOptions
-  ): Promise<{segments: WhisperWasmServiceCallbackParams[], transcribeDurationMs: number}> {
+    callback?: WhisperWasmServiceCallback,
+    options: WhisperWasmTranscriptionOptions = {},
+  ): Promise<{ segments: WhisperWasmServiceCallbackParams[]; transcribeDurationMs: number }> {
     if (this.isTranscribing) {
       throw new Error('Already transcribing');
     }
@@ -130,12 +138,18 @@ export class WhisperWasmService {
 
     const maxDuration = 120;
     if (audioData.length > 16000 * maxDuration) {
-      this.logger.warn("It's not recommended to transcribe audio data that is longer than 120 seconds");
+      // may be need to throw error
+      this.logger.warn(
+        "It's not recommended to transcribe audio data that is longer than 120 seconds",
+      );
     }
 
     this.isTranscribing = true;
 
-    const { language, threads, translate } = { ...defaultOptions, ...options };
+    const { language, threads, translate } = {
+      ...whisperWasmTranscriptionDefaultOptions,
+      ...options,
+    };
     const segments: WhisperWasmServiceCallbackParams[] = [];
 
     const startTimestamp = Date.now();
@@ -150,18 +164,21 @@ export class WhisperWasmService {
           timeEnd: endMs,
           text: text,
           raw: e.detail,
-        }
+        };
         segments.push(segment);
-        callback(segment);
+        callback?.(segment);
       });
 
-      const timeout = setTimeout(() => {
-        this.isTranscribing = false;
-        unsubscribe();
-        unsubscribeError();
-        this.logger.error('Transcribe timeout');
-        reject(new Error('Transcribe timeout'));
-      }, maxDuration * 2 * 1000);
+      const timeout = setTimeout(
+        () => {
+          this.isTranscribing = false;
+          unsubscribe();
+          unsubscribeError();
+          this.logger.error('Transcribe timeout');
+          reject(new Error('Transcribe timeout'));
+        },
+        maxDuration * 2 * 1000,
+      );
 
       const unsubscribeError = this.bus.on('transcribeError', (e) => {
         this.isTranscribing = false;
@@ -174,10 +191,3 @@ export class WhisperWasmService {
     });
   }
 }
-
-window.WhisperWasmService = new WhisperWasmService();
-
-
-
-
-

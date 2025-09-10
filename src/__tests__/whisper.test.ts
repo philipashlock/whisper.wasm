@@ -150,8 +150,9 @@ describe('WhisperWasm', () => {
       const audioData = new Float32Array([0.1, 0.2, 0.3]);
       const options: WhisperOptions = { model: 'base' };
 
-      await expect(uninitializedWhisper.transcribe(audioData, options))
-        .rejects.toThrow('WhisperWasm not initialized. Call init() first.');
+      await expect(uninitializedWhisper.transcribe(audioData, options)).rejects.toThrow(
+        'WhisperWasm not initialized. Call init() first.',
+      );
     });
 
     it('should handle progress callbacks', async () => {
@@ -171,7 +172,7 @@ describe('WhisperWasm', () => {
       expect(mockModule.whisper_full).toHaveBeenCalledWith(
         audioData,
         expect.any(Object),
-        progressCallback
+        progressCallback,
       );
     });
   });
@@ -184,8 +185,7 @@ describe('WhisperWasm', () => {
       // Mock failed transcription
       mockModule.whisper_full.mockReturnValue(null);
 
-      await expect(whisper.transcribe(audioData, options))
-        .rejects.toThrow('Transcription failed');
+      await expect(whisper.transcribe(audioData, options)).rejects.toThrow('Transcription failed');
     });
   });
 });

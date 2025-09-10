@@ -7,7 +7,9 @@ function timeToMs(t: string) {
   const parts = s.split(':').map(Number);
   if (parts.some(Number.isNaN)) throw new Error(`Bad time: "${t}"`);
 
-  let h = 0, m = 0, secMs = 0;
+  let h = 0,
+    m = 0,
+    secMs = 0;
   if (parts.length === 3) {
     [h, m] = parts;
     secMs = parseFloat(s.split(':').pop() || '0');
@@ -20,14 +22,15 @@ function timeToMs(t: string) {
   const ms = Math.floor(((h * 60 + m) * 60 + secMs) * 1000);
   return ms;
 }
-  
+
 /**
  * Парсит одну строку вида:
  * "[00:00:07.900 --> 00:00:10.900]   текст"
  * Возвращает объект с миллисекундами и исходными строками времени.
  */
 export function parseCueLine(line: string) {
-  const re = /^\s*\[?\s*([0-9]{1,2}:[0-9]{2}:(?:[0-9]{2}[.,][0-9]{1,3})|[0-9]{1,2}:[0-9]{2}[.,][0-9]{1,3})\s*-->\s*([0-9]{1,2}:[0-9]{2}:(?:[0-9]{2}[.,][0-9]{1,3})|[0-9]{1,2}:[0-9]{2}[.,][0-9]{1,3})\s*\]?\s*(.*)\s*$/;
+  const re =
+    /^\s*\[?\s*([0-9]{1,2}:[0-9]{2}:(?:[0-9]{2}[.,][0-9]{1,3})|[0-9]{1,2}:[0-9]{2}[.,][0-9]{1,3})\s*-->\s*([0-9]{1,2}:[0-9]{2}:(?:[0-9]{2}[.,][0-9]{1,3})|[0-9]{1,2}:[0-9]{2}[.,][0-9]{1,3})\s*\]?\s*(.*)\s*$/;
   const m = re.exec(line);
   if (!m) {
     throw new Error('Line does not match VTT-like pattern: ' + line);
@@ -49,6 +52,6 @@ export function parseCueLine(line: string) {
     endMs,
     start: startStr,
     end: endStr,
-    text
+    text,
   };
 }

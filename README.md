@@ -20,7 +20,7 @@ npm install whisper.wasm
 ## Quick Start
 
 ```typescript
-import { WhisperWasmService } from "whisper.wasm";
+import { WhisperWasmService } from 'whisper.wasm';
 
 const whisper = new WhisperWasmService();
 
@@ -33,7 +33,7 @@ await whisper.loadWasmModule(modelData);
 
 // Transcribe audio
 const audioData = new Float32Array(/* your audio data */);
-const result = whisper.transcribe(audioData, "en", 4, false);
+const result = whisper.transcribe(audioData, 'en', 4, false);
 console.log(result);
 ```
 

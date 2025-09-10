@@ -4,11 +4,11 @@ export class AudioHandler {
     this.kMaxAudio_s = 30 * 60; // 30 минут максимум
     this.kMaxRecording_s = 2 * 60; // 2 минуты для записи
     this.kSampleRate = 16000; // 16kHz sample rate для Whisper
-    
+
     // Инициализируем AudioContext
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
     window.OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-    
+
     this.context = null;
   }
 
@@ -46,19 +46,19 @@ export class AudioHandler {
 
     try {
       const context = this.createAudioContext();
-      
+
       // Читаем файл
       const arrayBuffer = await this.readFileAsArrayBuffer(file);
       const uint8Array = new Uint8Array(arrayBuffer);
 
       // Декодируем аудио
       const audioBuffer = await context.decodeAudioData(uint8Array.buffer);
-      
+
       // Создаем OfflineAudioContext для рендеринга
       const offlineContext = new OfflineAudioContext(
         audioBuffer.numberOfChannels,
         audioBuffer.length,
-        audioBuffer.sampleRate
+        audioBuffer.sampleRate,
       );
 
       // Создаем источник и подключаем к контексту
@@ -82,9 +82,8 @@ export class AudioHandler {
       onSuccess(audio, {
         sampleRate: audioBuffer.sampleRate,
         duration: audio.length / audioBuffer.sampleRate,
-        channels: audioBuffer.numberOfChannels
+        channels: audioBuffer.numberOfChannels,
       });
-
     } catch (error) {
       console.error('Ошибка декодирования аудио:', error);
       onError(`Ошибка декодирования аудио: ${error.message}`);
@@ -114,13 +113,6 @@ export class AudioHandler {
    * Получает информацию о поддерживаемых форматах
    */
   getSupportedFormats() {
-    return [
-      'MP3',
-      'WAV', 
-      'OGG',
-      'M4A',
-      'FLAC',
-      'AAC'
-    ];
+    return ['MP3', 'WAV', 'OGG', 'M4A', 'FLAC', 'AAC'];
   }
 }
