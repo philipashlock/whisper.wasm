@@ -1,17 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
-// Копируем WASM файлы в dist папку
+// Copy WASM files to dist folder
 function copyWasmFiles() {
   const wasmDir = path.join(__dirname, '../wasm');
   const distDir = path.join(__dirname, '../dist');
 
-  // Создаем dist папку если её нет
+  // Create dist folder if it doesn't exist
   if (!fs.existsSync(distDir)) {
     fs.mkdirSync(distDir, { recursive: true });
   }
 
-  // Копируем все .js файлы из wasm папки
+  // Copy all .js files from wasm folder
   const files = fs.readdirSync(wasmDir);
 
   files.forEach((file) => {

@@ -2,7 +2,7 @@ type WithPrefix<T, P extends string> = {
   [K in keyof T as K extends string ? `${P}${K}` : never]: T[K];
 };
 
-// Интерфейс для whisper.cpp WASM модуля
+// Interface for whisper.cpp WASM module
 export interface WhisperWasmModule extends WithPrefix<typeof FS, 'FS_'> {
   init: (modelPath: string) => number;
   // init: typeof FS.init;
@@ -16,10 +16,10 @@ export interface WhisperWasmModule extends WithPrefix<typeof FS, 'FS_'> {
   print: (e: string) => void;
   printErr: (e: string) => void;
   free: () => void;
-  // Другие методы модуля;
+  // Other module methods;
 }
 
-// Статус загрузки WASM модуля
+// WASM module loading status
 export interface WasmModuleStatus {
   wasmLoaded: boolean;
   modelLoaded: boolean;

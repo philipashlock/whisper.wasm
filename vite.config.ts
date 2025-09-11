@@ -2,12 +2,12 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
 
-// Плагин для замены относительных путей на абсолютные с base
+// Plugin to replace relative paths with absolute paths with base
 function replaceRelativePathsPlugin(basePath: string) {
   return {
     name: 'replace-relative-paths',
     transformIndexHtml(html) {
-      // Заменяем относительные пути на абсолютные с base
+      // Replace relative paths with absolute paths with base
       return html.replace(/src="\.\//g, `src="${basePath}`);
     },
   };
@@ -15,7 +15,7 @@ function replaceRelativePathsPlugin(basePath: string) {
 
 export default defineConfig(({ mode }) => {
   if (mode === 'library') {
-    // Конфигурация для сборки библиотеки
+    // Configuration for library build
     return {
       plugins: [
         dts({
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
         },
         rollupOptions: {},
         outDir: 'dist',
-        // Копируем WASM файлы в dist
+        // Copy WASM files to dist
         // copyPublicDir: false,
         assetsInclude: ['**/*.wasm', '**/*.js'],
         assetsInlineLimit: 0,
@@ -43,7 +43,7 @@ export default defineConfig(({ mode }) => {
           '@wasm': resolve(__dirname, 'wasm'),
         },
       },
-      // Настройки для обработки WASM файлов
+      // Settings for WASM file processing
       optimizeDeps: {
         // exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
       },
@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
   }
 
   if (mode === 'demo') {
-    // Конфигурация для сборки демо
+    // Configuration for demo build
     const basePath = process.env.DEMO_BASE_PATH || '/';
     return {
       base: basePath,
@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => {
             main: resolve(__dirname, 'demo/index.html'),
           },
         },
-        // Копируем WASM файлы в демо
+        // Copy WASM files to demo
         // copyPublicDir: false,
         assetsInclude: ['**/*.wasm', '**/*.js'],
         assetsInlineLimit: 0,
@@ -78,14 +78,14 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         open: true,
       },
-      // Настройки для обработки WASM файлов
+      // Settings for WASM file processing
       optimizeDeps: {
         // exclude: ['@wasm/libmain.js', '@wasm/libstream.js', '@wasm/libcommand.js', '@wasm/libbench.js']
       },
     };
   }
 
-  // Конфигурация по умолчанию
+  // Default configuration
   return {
     resolve: {
       alias: {

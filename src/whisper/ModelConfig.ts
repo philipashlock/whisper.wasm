@@ -18,13 +18,13 @@ export type ModelID =
 export interface WhisperModel {
   id: ModelID;
   name: string;
-  size: number; // в MB
+  size: number; // in MB
   language: 'en' | 'multilingual';
   quantized: boolean;
   cached?: boolean;
 }
 
-// Конфигурация моделей с ссылками на Hugging Face
+// Model configuration with Hugging Face links
 export const MODEL_CONFIG: Record<ModelID, WhisperModel & { url: string }> = {
   'tiny.en': {
     id: 'tiny.en',
@@ -148,7 +148,7 @@ export const MODEL_CONFIG: Record<ModelID, WhisperModel & { url: string }> = {
   },
 };
 
-// Утилитарные функции для работы с конфигурацией
+// Utility functions for working with configuration
 export function getModelInfo(modelId: ModelID): WhisperModel | null {
   const config = MODEL_CONFIG[modelId];
   if (!config) return null;

@@ -4,7 +4,7 @@ import { Logger, LoggerLevelsType } from '../utils/Logger';
 export interface ModelListConfig {
   models: WhisperModel[];
   cacheEnabled?: boolean;
-  maxCacheSize?: number; // в байтах
+  maxCacheSize?: number; // in bytes
 }
 
 export interface ProgressCallback {
@@ -25,7 +25,7 @@ export class ModelManager {
   }
 
   /**
-   * Загружает модель по имени
+   * Loads model by name
    */
   async loadModel(
     modelId: ModelID,
@@ -37,7 +37,7 @@ export class ModelManager {
       throw new Error(`Model ${modelId} not found in config`);
     }
 
-    // Проверяем кэш в IndexedDB
+    // Check cache in IndexedDB
     if (this.cacheEnabled && saveToIndexedDB) {
       const cachedModel = await this.getCachedModel(modelId);
       if (cachedModel) {
@@ -47,7 +47,7 @@ export class ModelManager {
       }
     }
 
-    // Загружаем модель по URL
+    // Load model by URL
     this.logger.info(`Loading model ${modelId} from ${model.url}`);
     const response = await fetch(model.url);
     if (!response.ok) {
@@ -85,7 +85,7 @@ export class ModelManager {
       reader.releaseLock();
     }
 
-    // Объединяем все чанки в один массив
+    // Combine all chunks into one array
     const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
     const modelData = new Uint8Array(totalLength);
     let offset = 0;
@@ -94,7 +94,7 @@ export class ModelManager {
       offset += chunk.length;
     }
 
-    // Сохраняем в IndexedDB если нужно
+    // Save to IndexedDB if needed
     if (this.cacheEnabled && saveToIndexedDB) {
       await this.saveModelToCache(modelId, modelData);
     }
@@ -104,11 +104,11 @@ export class ModelManager {
   }
 
   /**
-   * Загружает WASM-модель по URL и сохраняет её в IndexedDB, используя сам URL в качестве ключа.
+   * Loads WASM model by URL and saves it to IndexedDB using the URL itself as key.
    */
   async loadModelByUrl(modelUrl: string, progressCallback?: ProgressCallback): Promise<Uint8Array> {
     try {
-      // Сначала пробуем получить из кэша по URL
+      // First try to get from cache by URL
       if (this.cacheEnabled) {
         const cached = await this.getCachedModelByUrl(modelUrl);
         if (cached) {
@@ -118,7 +118,7 @@ export class ModelManager {
         }
       }
 
-      // Если нет в кэше, загружаем по сети
+      // If not in cache, load from network
       this.logger.info(`Loading WASM module from URL: ${modelUrl}`);
       const response = await fetch(modelUrl);
       if (!response.ok) {
@@ -156,7 +156,7 @@ export class ModelManager {
         reader.releaseLock();
       }
 
-      // Объединяем все чанки в один массив
+      // Combine all chunks into one array
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
       const modelData = new Uint8Array(totalLength);
       let offset = 0;
@@ -165,7 +165,7 @@ export class ModelManager {
         offset += chunk.length;
       }
 
-      // Сохраняем в кэш по URL
+      // Save to cache by URL
       if (this.cacheEnabled) {
         await this.saveModelToCacheByUrl(modelUrl, modelData);
       }
@@ -179,7 +179,7 @@ export class ModelManager {
   }
 
   /**
-   * Получить модель из IndexedDB по URL (ключ — сам URL)
+   * Get model from IndexedDB by URL (key is the URL itself)
    */
   private async getCachedModelByUrl(modelUrl: string): Promise<Uint8Array | null> {
     try {
@@ -208,7 +208,7 @@ export class ModelManager {
   }
 
   /**
-   * Сохраняет модель в IndexedDB по URL (ключ — сам URL)
+   * Saves model to IndexedDB by URL (key is the URL itself)
    */
   private async saveModelToCacheByUrl(modelUrl: string, modelData: Uint8Array): Promise<void> {
     try {
@@ -235,7 +235,7 @@ export class ModelManager {
   }
 
   /**
-   * Получает список доступных моделей с информацией о кэше
+   * Gets list of available models with cache information
    */
   async getAvailableModels(): Promise<WhisperModel[]> {
     const models = [...this.models];
@@ -245,10 +245,10 @@ export class ModelManager {
     }
 
     try {
-      // Получаем список загруженных моделей из IndexedDB
+      // Get list of loaded models from IndexedDB
       const cachedModels = await this.getCachedModelNames();
 
-      // Обогащаем массив моделей информацией о кэше
+      // Enrich models array with cache information
       return models.map((model) => ({
         ...model,
         cached: cachedModels.includes(model.id),
@@ -260,21 +260,21 @@ export class ModelManager {
   }
 
   /**
-   * Получает список доступных моделей без проверки кэша (синхронно)
+   * Gets list of available models without cache check (synchronously)
    */
   getAvailableModelsSync(): WhisperModel[] {
     return [...this.models];
   }
 
   /**
-   * Получает модель по имени из конфига
+   * Gets model by name from config
    */
   getModelConfig(modelName: ModelID): WhisperModel | undefined {
     return getModelConfig(modelName);
   }
 
   /**
-   * Сохраняет модель в IndexedDB
+   * Saves model to IndexedDB
    */
   private async saveModelToCache(modelName: ModelID, modelData: Uint8Array): Promise<void> {
     try {
@@ -301,7 +301,7 @@ export class ModelManager {
   }
 
   /**
-   * Получает модель из кэша IndexedDB
+   * Gets model from IndexedDB cache
    */
   private async getCachedModel(modelName: ModelID): Promise<Uint8Array | null> {
     try {
@@ -330,7 +330,7 @@ export class ModelManager {
   }
 
   /**
-   * Получает список имен моделей, загруженных в кэш
+   * Gets list of model names loaded in cache
    */
   private async getCachedModelNames(): Promise<ModelID[]> {
     try {
@@ -355,7 +355,7 @@ export class ModelManager {
   }
 
   /**
-   * Открывает IndexedDB для кэширования моделей
+   * Opens IndexedDB for model caching
    */
   private async openIndexedDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -367,14 +367,14 @@ export class ModelManager {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
 
-        // Создаем object store для моделей по ID
+        // Create object store for models by ID
         if (!db.objectStoreNames.contains('models')) {
           const store = db.createObjectStore('models', { keyPath: 'name' });
           store.createIndex('timestamp', 'timestamp', { unique: false });
           store.createIndex('size', 'size', { unique: false });
         }
 
-        // Создаем object store для моделей по URL
+        // Create object store for models by URL
         if (!db.objectStoreNames.contains('modelsByUrl')) {
           const store = db.createObjectStore('modelsByUrl', { keyPath: 'url' });
           store.createIndex('timestamp', 'timestamp', { unique: false });
@@ -385,14 +385,14 @@ export class ModelManager {
   }
 
   /**
-   * Очищает кэш моделей
+   * Clears model cache
    */
   async clearCache(): Promise<void> {
     try {
       const db = await this.openIndexedDB();
       const transaction = db.transaction(['models', 'modelsByUrl'], 'readwrite');
 
-      // Очищаем store для моделей по ID
+      // Clear store for models by ID
       const modelsStore = transaction.objectStore('models');
       await new Promise<void>((resolve, reject) => {
         const request = modelsStore.clear();
@@ -400,7 +400,7 @@ export class ModelManager {
         request.onerror = () => reject(request.error);
       });
 
-      // Очищаем store для моделей по URL
+      // Clear store for models by URL
       const modelsByUrlStore = transaction.objectStore('modelsByUrl');
       await new Promise<void>((resolve, reject) => {
         const request = modelsByUrlStore.clear();
@@ -415,7 +415,7 @@ export class ModelManager {
   }
 
   /**
-   * Получает информацию о кэше
+   * Gets cache information
    */
   async getCacheInfo(): Promise<{ count: number; totalSize: number }> {
     try {
