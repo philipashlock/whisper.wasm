@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
+import { defineConfig as defineVitestConfig } from 'vitest/config';
 
 // Plugin to replace relative paths with absolute paths with base
 function replaceRelativePathsPlugin(basePath: string) {
@@ -14,6 +15,21 @@ function replaceRelativePathsPlugin(basePath: string) {
 }
 
 export default defineConfig(({ mode }) => {
+  // Vitest configuration
+  if (process.env.NODE_ENV === 'test') {
+    return defineVitestConfig({
+      test: {
+        environment: 'jsdom',
+        globals: true,
+        setupFiles: ['./src/__tests__/setup.ts'],
+      },
+      resolve: {
+        alias: {
+          '@wasm': resolve(__dirname, 'wasm'),
+        },
+      },
+    });
+  }
   if (mode === 'library') {
     // Configuration for library build
     return {

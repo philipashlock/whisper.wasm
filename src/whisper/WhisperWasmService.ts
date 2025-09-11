@@ -145,7 +145,11 @@ export class WhisperWasmService {
 
     this.isTranscribing = true;
 
-    const { language, threads, translate } = {
+    const {
+      language = 'auto',
+      threads = 4,
+      translate = false,
+    } = {
       ...whisperWasmTranscriptionDefaultOptions,
       ...options,
     };

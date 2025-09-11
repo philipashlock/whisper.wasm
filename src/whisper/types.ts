@@ -36,12 +36,14 @@ export interface WhisperWasmServiceCallbackParams {
 
 export type WhisperWasmServiceCallback = (p: WhisperWasmServiceCallbackParams) => void;
 
-export const whisperWasmTranscriptionDefaultOptions = {
-  language: 'auto',
+export const whisperWasmTranscriptionDefaultOptions: WhisperWasmTranscriptionOptions = {
+  language: 'auto' as const,
   threads: 4,
   translate: false,
 } as const;
 
-export type WhisperWasmTranscriptionOptions = Partial<
-  typeof whisperWasmTranscriptionDefaultOptions
->;
+export type WhisperWasmTranscriptionOptions = {
+  language?: string;
+  threads?: number;
+  translate?: boolean;
+};
