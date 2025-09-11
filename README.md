@@ -191,6 +191,7 @@ Try the interactive demo:
 **Source Code:** [demo/index.html](demo/index.html)
 
 **Local Development:**
+
 ```bash
 npm run dev:demo
 ```

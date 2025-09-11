@@ -297,7 +297,7 @@ jobs:
         with:
           name: whisper-wasm-files
           path: wasm/
-  
+
       - name: Install dependencies
         run: npm ci
 
