@@ -82,7 +82,6 @@
     "vite-plugin-dts": "^3.7.0"
   },
   "dependencies": {
-    "comlink": "^4.4.1",
     "wasm-feature-detect": "^1.8.0"
   },
   "repository": {
