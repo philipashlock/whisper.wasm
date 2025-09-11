@@ -73,12 +73,6 @@ export class AudioHandler {
 
       onProgress(`Аудио загружено, размер: ${audio.length} сэмплов`);
 
-      // Обрезаем до первых 30 минут если нужно
-      if (audio.length > this.kMaxAudio_s * this.kSampleRate) {
-        audio = audio.slice(0, this.kMaxAudio_s * this.kSampleRate);
-        onProgress(`Аудио обрезано до первых ${this.kMaxAudio_s} секунд`);
-      }
-
       onSuccess(audio, {
         sampleRate: audioBuffer.sampleRate,
         duration: audio.length / audioBuffer.sampleRate,

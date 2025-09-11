@@ -43,4 +43,8 @@ export class Logger {
   public setLevel(level: LoggerLevelsType) {
     this.level = level;
   }
+
+  public getLevel() {
+    return this.level;
+  }
 }

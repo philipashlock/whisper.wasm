@@ -8,6 +8,8 @@ import type {
 } from './types';
 import { whisperWasmTranscriptionDefaultOptions } from './types';
 import { parseCueLine } from './parseCueLine';
+import { TranscriptionSession } from './TranscriptionSession';
+import { sleep } from '../utils/sleep';
 // import wasmScriptUrl from '@wasm/libmain.js?url'
 
 // this is just for debugging
@@ -16,10 +18,6 @@ declare global {
     Module: WhisperWasmModule;
     WhisperWasmService: WhisperWasmService;
   }
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface TranscribeEvent extends Event {
@@ -51,9 +49,9 @@ export class WhisperWasmService {
   private bus = new TranscriptionEventBus();
   private logger: Logger;
 
-  constructor(options: WhisperWasmServiceOptions = { logLevel: Logger.levels.ERROR, init: false }) {
-    this.logger = new Logger(options.logLevel, 'WhisperWasmService');
-    if (options.init) {
+  constructor(options?: WhisperWasmServiceOptions) {
+    this.logger = new Logger(options?.logLevel ?? Logger.levels.ERROR, 'WhisperWasmService');
+    if (options?.init) {
       this.loadWasmScript();
     }
   }
@@ -190,4 +188,8 @@ export class WhisperWasmService {
       });
     });
   }
+
+  createSession(): TranscriptionSession {
+    return new TranscriptionSession(this, { logLevel: this.logger.getLevel() });
+  } 
 }

@@ -47,9 +47,9 @@
       import { h, render } from 'preact';
       import { useState, useMemo, useEffect } from 'preact/hooks';
       import htm from 'htm';
-      import { WhisperWasmService } from '../dist/index.es.js';
-      import { ModelManager } from '../dist/index.es.js';
-      import { getAllModels } from '../dist/index.es.js';
+      import { WhisperWasmService } from '../src/index.ts';
+      import { ModelManager } from '../src/index.ts';
+      import { getAllModels } from '../src/index.ts';
       import { AudioHandler } from './audioHandler.js';
 
       const html = htm.bind(h);
@@ -138,6 +138,15 @@
           }
         };
 
+        const msToTime = (ms) => {
+          const totalSeconds = Math.floor(ms / 1000);
+          const hours = Math.floor(totalSeconds / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+          
+          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        };
+
         const transcribeAudio = async () => {
           if (!modelLoaded || !audioFile) {
             setStatus('Сначала загрузите модель и выберите аудио файл');
@@ -157,13 +166,15 @@
             async (audioData, audioInfo) => {
               console.log('Audio processed:', audioInfo);
               try {
-                const result = await whisperService.transcribe(
-                  audioData,
-                  (e) => setTranscription((t) => t + e.raw + '\n'),
-                  { language: 'ru', threads: 25, translate: false },
+                const session = whisperService.createSession();
+                const result = await session.streamimg(
+                  audioData, { language: 'ru', threads: 25, translate: false }
                 );
-                if (transcription) setTranscription(t + '\n\n');
-                setTranscription((t) => t + '\n\n' + result.transcribeDurationMs + 'Ms');
+
+                for await (const segment of result) {
+                  setTranscription((t) => t + `[${msToTime(segment.timeStart)} --> ${msToTime(segment.timeEnd)}]: ${segment.text}` + '\n');
+                }
+
                 setStatus('Транскрипция завершена!');
               } catch (error) {
                 console.error('Transcription error:', error);
