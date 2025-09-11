@@ -10,7 +10,6 @@ import { whisperWasmTranscriptionDefaultOptions } from './types';
 import { parseCueLine } from './parseCueLine';
 import { TranscriptionSession } from './TranscriptionSession';
 import { sleep } from '../utils/sleep';
-import { createTimeoutError } from 'src/utils/timeoutError';
 // import wasmScriptUrl from '@wasm/libmain.js?url'
 
 // this is just for debugging
