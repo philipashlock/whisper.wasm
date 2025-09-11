@@ -137,16 +137,14 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  create-release-tag:
+  prepare-canary:
     runs-on: ubuntu-latest
     needs: [test, build-wasm]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
-      pull-requests: write
     outputs:
-      tag-created: ${{ steps.check_tag.outputs.exists == 'false' }}
-      version: ${{ steps.bump_version.outputs.VERSION }}
+      canary-version: ${{ steps.prepare_canary.outputs.canary-version }}
 
     steps:
       - name: Checkout code
@@ -180,74 +178,69 @@ jobs:
           path: dist/
           retention-days: 30
 
-      - name: Bump version
-        id: bump_version
+      - name: Prepare Canary Version
+        id: prepare_canary
         run: |
           # Get current version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "Current version: $CURRENT_VERSION"
 
-          # Check if this is a version bump commit
-          if git log -1 --pretty=%B | grep -q "chore: bump version"; then
-            echo "Version bump commit detected, using current version"
-            echo "VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            echo "BUMPED=false" >> $GITHUB_OUTPUT
-          else
-            # Determine version bump type based on commit messages
-            COMMIT_MSG=$(git log -1 --pretty=%B)
-            echo "Commit message: $COMMIT_MSG"
-            
-            if echo "$COMMIT_MSG" | grep -qE "^(feat|feature)(\(.+\))?!:"; then
-              # Major version for breaking changes
-              VERSION_TYPE="major"
-            elif echo "$COMMIT_MSG" | grep -qE "^(feat|feature)(\(.+\))?:"; then
-              # Minor version for new features
-              VERSION_TYPE="minor"
-            else
-              # Patch version for bug fixes and other changes
-              VERSION_TYPE="patch"
-            fi
-            
-            echo "Version bump type: $VERSION_TYPE"
-            
-            # Bump version
-            NEW_VERSION=$(npm version $VERSION_TYPE --no-git-tag-version | sed 's/v//')
-            echo "New version: $NEW_VERSION"
-            echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-            echo "BUMPED=true" >> $GITHUB_OUTPUT
-            
-            # Commit version bump
-            git config --local user.email "action@github.com"
-            git config --local user.name "GitHub Action"
-            git add package.json package-lock.json
-            git commit -m "chore: bump version to $NEW_VERSION"
-            git push origin main
-          fi
+          # Get short commit hash
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "Commit hash: $COMMIT_HASH"
 
-      - name: Check if tag exists
-        id: check_tag
-        run: |
-          if git rev-parse "v${{ steps.bump_version.outputs.VERSION }}" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag v${{ steps.bump_version.outputs.VERSION }} already exists, skipping tag creation"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag v${{ steps.bump_version.outputs.VERSION }} does not exist, will create it"
-          fi
+          # Create canary version
+          CANARY_VERSION="${CURRENT_VERSION}-canary.${COMMIT_HASH}"
+          echo "Canary version: $CANARY_VERSION"
+          echo "canary-version=$CANARY_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create Git Tag
-        if: steps.check_tag.outputs.exists == 'false'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git tag -a "v${{ steps.bump_version.outputs.VERSION }}" -m "Release v${{ steps.bump_version.outputs.VERSION }}"
-          git push origin "v${{ steps.bump_version.outputs.VERSION }}"
-          echo "Created and pushed tag v${{ steps.bump_version.outputs.VERSION }}"
+          # Update package.json with canary version
+          npm version $CANARY_VERSION --no-git-tag-version
+          echo "Updated package.json with canary version"
+
+  publish-canary:
+    runs-on: ubuntu-latest
+    needs: [test, build-wasm, prepare-canary]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: whisper-wasm-files
+          path: wasm/
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish Canary to NPM
+        run: npm publish --tag canary
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [test, build-wasm, create-release-tag]
-    if: github.event_name == 'release' || (github.ref == 'refs/heads/main' && needs.create-release-tag.outputs.tag-created == 'true')
+    if: github.event_name == 'release'
     permissions:
       contents: write
 
@@ -285,26 +278,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ needs.create-release-tag.outputs.version }}
-          release_name: Release v${{ needs.create-release-tag.outputs.version }}
-          body: |
-            ## What's Changed
-
-            - Updated Whisper.wasm to version ${{ needs.create-release-tag.outputs.version }}
-            - Improved performance and stability
-            - Updated dependencies
-
-            ## Installation
-
-            ```bash
-            npm install @timur00kh/whisper.wasm@${{ needs.create-release-tag.outputs.version }}
-            ```
-
-            ## Demo
-
-            Try the live demo: https://timur00kh.github.io/whisper.wasm/
-          draft: false
-          prerelease: false
+          tag_name: ${{ github.event.release.tag_name }}
+          release_name: ${{ github.event.release.name }}
+          body: ${{ github.event.release.body }}
+          draft: ${{ github.event.release.draft }}
+          prerelease: ${{ github.event.release.prerelease }}
 
       - name: Publish to NPM
         run: npm publish
