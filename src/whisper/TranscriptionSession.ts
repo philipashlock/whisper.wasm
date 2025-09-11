@@ -1,3 +1,4 @@
+import { sleep } from 'src/utils/sleep';
 import { Logger, LoggerLevelsType } from '../utils/Logger';
 import {
   type WhisperWasmTranscriptionOptions,
@@ -15,6 +16,10 @@ function splitFloat32Array(arr: Float32Array, chunkSize = 16000 * 100) {
 
 type TResolver = ((value: WhisperWasmServiceCallbackParams | undefined) => void) | null;
 
+interface ITranscriptionSessionOptions extends WhisperWasmTranscriptionOptions {
+  sleepMsBetweenChunks?: number;
+}
+
 export class TranscriptionSession {
   private logger: Logger;
 
@@ -26,7 +31,7 @@ export class TranscriptionSession {
 
   async *streamimg(
     audioData: Float32Array,
-    options: WhisperWasmTranscriptionOptions = {},
+    options: ITranscriptionSessionOptions = {},
   ): AsyncIterableIterator<WhisperWasmServiceCallbackParams> {
     const audioDataChunks = splitFloat32Array(audioData);
     let lastSegmentTimeEnd = 0;
@@ -67,6 +72,7 @@ export class TranscriptionSession {
           }
         }
       }
+      if (options.sleepMsBetweenChunks) await sleep(options.sleepMsBetweenChunks);
     }
   }
 }
