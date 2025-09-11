@@ -137,10 +137,132 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  publish:
+  create-release:
     runs-on: ubuntu-latest
     needs: [test, build-wasm]
-    if: github.event_name == 'release'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      new-release: ${{ steps.check_tag.outputs.exists == 'false' }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: whisper-wasm-files
+          path: wasm/
+
+      - name: Build project
+        run: npm run build
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          # Get current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Check if this is a version bump commit
+          if git log -1 --pretty=%B | grep -q "chore: bump version"; then
+            echo "Version bump commit detected, using current version"
+            echo "VERSION=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "BUMPED=false" >> $GITHUB_OUTPUT
+          else
+            # Determine version bump type based on commit messages
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            echo "Commit message: $COMMIT_MSG"
+            
+            if echo "$COMMIT_MSG" | grep -qE "^(feat|feature)(\(.+\))?!:"; then
+              # Major version for breaking changes
+              VERSION_TYPE="major"
+            elif echo "$COMMIT_MSG" | grep -qE "^(feat|feature)(\(.+\))?:"; then
+              # Minor version for new features
+              VERSION_TYPE="minor"
+            else
+              # Patch version for bug fixes and other changes
+              VERSION_TYPE="patch"
+            fi
+            
+            echo "Version bump type: $VERSION_TYPE"
+            
+            # Bump version
+            NEW_VERSION=$(npm version $VERSION_TYPE --no-git-tag-version | sed 's/v//')
+            echo "New version: $NEW_VERSION"
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "BUMPED=true" >> $GITHUB_OUTPUT
+            
+            # Commit version bump
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add package.json package-lock.json
+            git commit -m "chore: bump version to $NEW_VERSION"
+            git push origin main
+          fi
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.bump_version.outputs.VERSION }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Git Tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a "v${{ steps.bump_version.outputs.VERSION }}" -m "Release v${{ steps.bump_version.outputs.VERSION }}"
+          git push origin "v${{ steps.bump_version.outputs.VERSION }}"
+
+      - name: Create Release
+        id: create_release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.bump_version.outputs.VERSION }}
+          release_name: Release v${{ steps.bump_version.outputs.VERSION }}
+          body: |
+            ## What's Changed
+
+            - Updated Whisper.wasm to version ${{ steps.bump_version.outputs.VERSION }}
+            - Improved performance and stability
+            - Updated dependencies
+
+            ## Installation
+
+            ```bash
+            npm install @timur00kh/whisper.wasm@${{ steps.bump_version.outputs.VERSION }}
+            ```
+
+            ## Demo
+
+            Try the live demo: https://timur00kh.github.io/whisper.wasm/
+          draft: false
+          prerelease: false
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [test, build-wasm, create-release]
+    if: github.event_name == 'release' || (github.ref == 'refs/heads/main' && needs.create-release.outputs.new-release == 'true')
 
     steps:
       - name: Checkout code
@@ -170,7 +292,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (for manual releases)
+        if: github.event_name == 'release'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
