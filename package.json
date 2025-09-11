@@ -86,7 +86,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/timur00kh/whisper.wasm.git"
+    "url": "git+https://github.com/timur00kh/whisper.wasm.git"
   },
   "bugs": {
     "url": "https://github.com/timur00kh/whisper.wasm/issues"

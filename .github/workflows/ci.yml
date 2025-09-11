@@ -158,6 +158,7 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Download WASM artifacts
         uses: actions/download-artifact@v4
