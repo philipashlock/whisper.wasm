@@ -137,7 +137,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  create-release:
+  create-release-tag:
     runs-on: ubuntu-latest
     needs: [test, build-wasm]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -145,9 +145,8 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      new-release: ${{ steps.check_tag.outputs.exists == 'false' }}
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
+      tag-created: ${{ steps.check_tag.outputs.exists == 'false' }}
+      version: ${{ steps.bump_version.outputs.VERSION }}
 
     steps:
       - name: Checkout code
@@ -230,8 +229,10 @@ jobs:
         run: |
           if git rev-parse "v${{ steps.bump_version.outputs.VERSION }}" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.bump_version.outputs.VERSION }} already exists, skipping tag creation"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.bump_version.outputs.VERSION }} does not exist, will create it"
           fi
 
       - name: Create Git Tag
@@ -241,43 +242,20 @@ jobs:
           git config --local user.name "GitHub Action"
           git tag -a "v${{ steps.bump_version.outputs.VERSION }}" -m "Release v${{ steps.bump_version.outputs.VERSION }}"
           git push origin "v${{ steps.bump_version.outputs.VERSION }}"
+          echo "Created and pushed tag v${{ steps.bump_version.outputs.VERSION }}"
 
-      - name: Create Release
-        id: create_release
-        if: steps.check_tag.outputs.exists == 'false'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.bump_version.outputs.VERSION }}
-          release_name: Release v${{ steps.bump_version.outputs.VERSION }}
-          body: |
-            ## What's Changed
-
-            - Updated Whisper.wasm to version ${{ steps.bump_version.outputs.VERSION }}
-            - Improved performance and stability
-            - Updated dependencies
-
-            ## Installation
-
-            ```bash
-            npm install @timur00kh/whisper.wasm@${{ steps.bump_version.outputs.VERSION }}
-            ```
-
-            ## Demo
-
-            Try the live demo: https://timur00kh.github.io/whisper.wasm/
-          draft: false
-          prerelease: false
-
-  publish:
+  create-release:
     runs-on: ubuntu-latest
-    needs: [test, build-wasm, create-release]
-    if: github.event_name == 'release' || (github.ref == 'refs/heads/main' && needs.create-release.outputs.new-release == 'true')
+    needs: [test, build-wasm, create-release-tag]
+    if: github.event_name == 'release' || (github.ref == 'refs/heads/main' && needs.create-release-tag.outputs.tag-created == 'true')
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -300,6 +278,33 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.create-release-tag.outputs.version }}
+          release_name: Release v${{ needs.create-release-tag.outputs.version }}
+          body: |
+            ## What's Changed
+
+            - Updated Whisper.wasm to version ${{ needs.create-release-tag.outputs.version }}
+            - Improved performance and stability
+            - Updated dependencies
+
+            ## Installation
+
+            ```bash
+            npm install @timur00kh/whisper.wasm@${{ needs.create-release-tag.outputs.version }}
+            ```
+
+            ## Demo
+
+            Try the live demo: https://timur00kh.github.io/whisper.wasm/
+          draft: false
+          prerelease: false
 
       - name: Publish to NPM
         run: npm publish
