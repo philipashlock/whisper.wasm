@@ -16,7 +16,7 @@ A TypeScript wrapper for [whisper.cpp](https://github.com/ggerganov/whisper.cpp)
 ## Installation
 
 ```bash
-npm install @timur00kh/whisper.wasm
+npm install @timur00kh/whisper.wasm@canary
 ```
 
 ## Quick Start
@@ -24,7 +24,7 @@ npm install @timur00kh/whisper.wasm
 ### Basic Usage
 
 ```typescript
-import { WhisperWasmService, ModelManager } from 'whisper.wasm';
+import { WhisperWasmService, ModelManager } from '@timur00kh/whisper.wasm';
 
 // Initialize the service
 const whisper = new WhisperWasmService({ logLevel: 1 });
@@ -59,7 +59,7 @@ for await (const segment of stream) {
 ### Model Management
 
 ```typescript
-import { ModelManager, getAllModels } from 'whisper.wasm';
+import { ModelManager, getAllModels } from '@timur00kh/whisper.wasm';
 
 const modelManager = new ModelManager();
 
