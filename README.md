@@ -16,7 +16,7 @@ A TypeScript wrapper for [whisper.cpp](https://github.com/ggerganov/whisper.cpp)
 ## Installation
 
 ```bash
-npm install whisper.wasm
+npm install @timur00kh/whisper.wasm
 ```
 
 ## Quick Start
@@ -36,7 +36,7 @@ if (!isSupported) {
   throw new Error('WebAssembly is not supported');
 }
 
-// Load a model 
+// Load a model
 const modelData = await modelManager.loadModel('base'); // or 'tiny', 'small', 'medium', 'large'
 await whisper.loadWasmModule(modelData);
 
@@ -48,7 +48,7 @@ const stream = session.streamimg(audioData, {
   language: 'en',
   threads: 4,
   translate: false,
-  sleepMsBetweenChunks: 100
+  sleepMsBetweenChunks: 100,
 });
 
 for await (const segment of stream) {
@@ -105,6 +105,7 @@ Checks if WebAssembly is supported in the current environment.
 Loads a Whisper model from binary data.
 
 **Parameters:**
+
 - `model`: Model data as Uint8Array
 
 ##### `transcribe(audioData: Float32Array, callback?: WhisperWasmServiceCallback, options?: WhisperWasmTranscriptionOptions): Promise<TranscriptionResult>`
@@ -112,11 +113,13 @@ Loads a Whisper model from binary data.
 Transcribes audio data to text.
 
 **Parameters:**
+
 - `audioData`: Audio data as Float32Array (16kHz sample rate)
 - `callback`: Optional callback function called for each transcribed segment
 - `options`: Transcription options (optional)
 
 **Returns:**
+
 ```typescript
 {
   segments: WhisperWasmServiceCallbackParams[];
@@ -143,6 +146,7 @@ Returns information about available models.
 Loads a model by ID.
 
 **Parameters:**
+
 - `modelId`: Model identifier ('tiny', 'base', 'small', 'medium', 'large')
 - `useCache`: Whether to use cached model if available
 - `onProgress`: Progress callback function
@@ -163,13 +167,13 @@ Processes audio data in streaming fashion.
 
 ## Supported Models
 
-| Model  | Size  | Memory | Speed | Quality |
-|--------|-------|--------|-------|---------|
-| tiny   | ~39 MB| ~1 GB  | ~32x  | ~99%    |
-| base   | ~74 MB| ~1 GB  | ~16x  | ~99%    |
-| small  | ~244 MB| ~2 GB | ~6x   | ~99%    |
-| medium | ~769 MB| ~5 GB | ~2x   | ~99%    |
-| large  | ~1550 MB| ~10 GB| ~1x   | ~99%    |
+| Model  | Size     | Memory | Speed | Quality |
+| ------ | -------- | ------ | ----- | ------- |
+| tiny   | ~39 MB   | ~1 GB  | ~32x  | ~99%    |
+| base   | ~74 MB   | ~1 GB  | ~16x  | ~99%    |
+| small  | ~244 MB  | ~2 GB  | ~6x   | ~99%    |
+| medium | ~769 MB  | ~5 GB  | ~2x   | ~99%    |
+| large  | ~1550 MB | ~10 GB | ~1x   | ~99%    |
 
 ## Browser Support
 
@@ -182,11 +186,17 @@ Processes audio data in streaming fashion.
 
 Try the interactive demo:
 
+**Live Demo:** https://timur00kh.github.io/whisper.wasm/
+
+**Source Code:** [demo/index.html](demo/index.html)
+
+**Local Development:**
 ```bash
 npm run dev:demo
 ```
 
 The demo includes:
+
 - Audio file upload and processing
 - Model selection and loading
 - Real-time transcription with progress

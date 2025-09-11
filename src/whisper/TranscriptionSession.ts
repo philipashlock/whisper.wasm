@@ -24,8 +24,9 @@ export class TranscriptionSession {
   private logger: Logger;
 
   constructor(
-    private whisperService: WhisperWasmService, 
-    options?: { logLevel: LoggerLevelsType }) {
+    private whisperService: WhisperWasmService,
+    options?: { logLevel: LoggerLevelsType },
+  ) {
     this.logger = new Logger(options?.logLevel || Logger.levels.ERROR, 'TranscriptionSession');
   }
 
@@ -42,23 +43,30 @@ export class TranscriptionSession {
       let error: any;
       let currentSegmentTimeEnd = 0;
 
-      this.whisperService.transcribe(chunk, (segment) => {
-        currentSegmentTimeEnd = segment.timeEnd;
-        segment.timeStart += lastSegmentTimeEnd;
-        segment.timeEnd += lastSegmentTimeEnd;
-        if (resolver) {
-          resolver(segment);
-          resolver = null;
-        } else {
-          queue.push(segment);
-        }
-      }, options).then(() => {
-        done = true;
-        lastSegmentTimeEnd += currentSegmentTimeEnd;
-        resolver?.(undefined); 
-      }).catch((e) => {
-        error = e;
-      });
+      this.whisperService
+        .transcribe(
+          chunk,
+          (segment) => {
+            currentSegmentTimeEnd = segment.timeEnd;
+            segment.timeStart += lastSegmentTimeEnd;
+            segment.timeEnd += lastSegmentTimeEnd;
+            if (resolver) {
+              resolver(segment);
+              resolver = null;
+            } else {
+              queue.push(segment);
+            }
+          },
+          options,
+        )
+        .then(() => {
+          done = true;
+          lastSegmentTimeEnd += currentSegmentTimeEnd;
+          resolver?.(undefined);
+        })
+        .catch((e) => {
+          error = e;
+        });
 
       while (true) {
         if (error) throw error;

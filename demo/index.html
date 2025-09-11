@@ -120,7 +120,7 @@
             console.log('WASM module loaded successfully');
             setModelLoaded(true);
             setStatus(`Model ${selectedModel} loaded successfully!`);
-            
+
             // Reset cancel state when loading new model
             setCanCancel(false);
             setAbortController(null);
@@ -152,7 +152,7 @@
           const hours = Math.floor(totalSeconds / 3600);
           const minutes = Math.floor((totalSeconds % 3600) / 60);
           const seconds = totalSeconds % 60;
-          
+
           return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
 
@@ -191,19 +191,26 @@
               // onSuccess
               async (audioData, audioInfo) => {
                 if (controller.signal.aborted) return;
-                
+
                 console.log('Audio processed:', audioInfo);
                 try {
                   const session = whisperService.createSession();
-                  const result = await session.streamimg(
-                    audioData, { language: 'ru', threads: 25, translate: false }
-                  );
+                  const result = await session.streamimg(audioData, {
+                    language: 'ru',
+                    threads: 25,
+                    translate: false,
+                  });
 
                   for await (const segment of result) {
                     if (controller.signal.aborted) {
                       throw new Error('Transcription cancelled');
                     }
-                    setTranscription((t) => t + `[${msToTime(segment.timeStart)} --> ${msToTime(segment.timeEnd)}]: ${segment.text}` + '\n');
+                    setTranscription(
+                      (t) =>
+                        t +
+                        `[${msToTime(segment.timeStart)} --> ${msToTime(segment.timeEnd)}]: ${segment.text}` +
+                        '\n',
+                    );
                   }
 
                   if (!controller.signal.aborted) {
@@ -224,7 +231,7 @@
               // onError
               (error) => {
                 if (controller.signal.aborted) return;
-                
+
                 console.error('Audio processing error:', error);
                 setStatus(`Audio processing error: ${error}`);
                 setLoading(false);
@@ -253,9 +260,7 @@
 
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
               <h2>1. Check WASM Support</h2>
-              <button onClick=${checkWasmSupport} disabled=${loading}>
-                Check WASM Support
-              </button>
+              <button onClick=${checkWasmSupport} disabled=${loading}>Check WASM Support</button>
               ${wasmSupported !== null &&
               html`
                 <div
@@ -290,9 +295,7 @@
                   )}
                 </select>
               </div>
-              <button onClick=${loadModel} disabled=${loading || !wasmSupported}>
-                Load Model
-              </button>
+              <button onClick=${loadModel} disabled=${loading || !wasmSupported}>Load Model</button>
               <button
                 onClick=${async () => {
                   try {
@@ -368,20 +371,22 @@
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
               <h2>4. Transcription</h2>
               <div style="margin-bottom: 10px;">
-                <button onClick=${transcribeAudio} disabled=${loading || !modelLoaded || !audioFile}>
+                <button
+                  onClick=${transcribeAudio}
+                  disabled=${loading || !modelLoaded || !audioFile}
+                >
                   ${loading ? 'Processing...' : 'Transcribe'}
                 </button>
-                ${canCancel && html`
-                  <button 
-                    onClick=${cancelTranscription} 
-                    style="margin-left: 10px;"
-                  >
+                ${canCancel &&
+                html`
+                  <button onClick=${cancelTranscription} style="margin-left: 10px;">
                     ❌ Cancel
                   </button>
                 `}
               </div>
               <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                Debug: modelLoaded=${modelLoaded}, audioFile=${!!audioFile}, loading=${loading}, canCancel=${canCancel}
+                Debug: modelLoaded=${modelLoaded}, audioFile=${!!audioFile}, loading=${loading},
+                canCancel=${canCancel}
               </div>
               ${transcription &&
               html`

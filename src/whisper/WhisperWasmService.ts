@@ -192,5 +192,5 @@ export class WhisperWasmService {
 
   createSession(): TranscriptionSession {
     return new TranscriptionSession(this, { logLevel: this.logger.getLevel() });
-  } 
+  }
 }
