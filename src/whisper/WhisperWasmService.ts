@@ -93,6 +93,7 @@ export class WhisperWasmService {
     }
 
     // if (!this.wasmModule) {
+    // todo implement destroy function
     await this.loadWasmScript();
     // }
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,11 +10,11 @@
     <meta property="og:title" content="Whisper.wasm Demo - Speech Recognition in Browser" />
     <meta
       property="og:description"
-      content="Демонстрация работы Whisper.wasm - распознавание речи прямо в браузере с использованием WebAssembly"
+      content="Whisper.wasm Demo - Speech recognition directly in the browser using WebAssembly"
     />
     <meta property="og:image" content="https://timur00kh.github.io/whisper.wasm/image.png" />
     <meta property="og:site_name" content="Whisper.wasm" />
-    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
@@ -22,7 +22,7 @@
     <meta property="twitter:title" content="Whisper.wasm Demo - Speech Recognition in Browser" />
     <meta
       property="twitter:description"
-      content="Демонстрация работы Whisper.wasm - распознавание речи прямо в браузере с использованием WebAssembly"
+      content="Whisper.wasm Demo - Speech recognition directly in the browser using WebAssembly"
     />
     <meta property="twitter:image" content="https://timur00kh.github.io/whisper.wasm/image.png" />
 
@@ -30,7 +30,7 @@
     <title>Whisper.wasm Demo - Speech Recognition in Browser</title>
     <meta
       name="description"
-      content="Демонстрация работы Whisper.wasm - распознавание речи прямо в браузере с использованием WebAssembly"
+      content="Whisper.wasm Demo - Speech recognition directly in the browser using WebAssembly"
     />
     <meta
       name="keywords"
@@ -64,6 +64,8 @@
         const [status, setStatus] = useState('');
         const [loading, setLoading] = useState(false);
         const [progress, setProgress] = useState(0);
+        const [canCancel, setCanCancel] = useState(false);
+        const [abortController, setAbortController] = useState(null);
 
         const whisperService = useMemo(() => new WhisperWasmService({ logLevel: 0 }), []);
         const modelManager = useMemo(() => new ModelManager(), []);
@@ -77,11 +79,11 @@
             console.error('Error loading models:', error);
             // Fallback to sync version
             setAvailableModels(getAllModels());
-            setStatus('Ошибка загрузки информации о кэше');
+            setStatus('Error loading cache information');
           }
         };
 
-        // Загружаем модели при инициализации
+        // Load models on initialization
         useEffect(() => {
           loadAvailableModels();
           window.modelManager = modelManager;
@@ -92,9 +94,9 @@
           try {
             const supported = await whisperService.checkWasmSupport();
             setWasmSupported(supported);
-            setStatus(supported ? 'WASM поддерживается' : 'WASM не поддерживается');
+            setStatus(supported ? 'WASM is supported' : 'WASM is not supported');
           } catch (error) {
-            setStatus(`Ошибка: ${error.message}`);
+            setStatus(`Error: ${error.message}`);
           }
         };
 
@@ -105,25 +107,29 @@
         const loadModel = async () => {
           setLoading(true);
           setProgress(0);
-          setStatus('Загрузка модели...');
+          setStatus('Loading model...');
           console.log('Loading model:', selectedModel);
           try {
             const modelData = await modelManager.loadModel(selectedModel, true, (progress) => {
               setProgress(progress);
-              setStatus(`Загрузка модели... ${progress}%`);
+              setStatus(`Loading model... ${progress}%`);
             });
             console.log('Model data loaded, size:', modelData.length);
             // await whisperService.loadWasmScriptUnsafe();
             await whisperService.loadWasmModule(modelData);
             console.log('WASM module loaded successfully');
             setModelLoaded(true);
-            setStatus(`Модель ${selectedModel} загружена успешно!`);
+            setStatus(`Model ${selectedModel} loaded successfully!`);
+            
+            // Reset cancel state when loading new model
+            setCanCancel(false);
+            setAbortController(null);
 
-            // Обновляем список моделей после загрузки
+            // Update model list after loading
             await loadAvailableModels();
           } catch (error) {
             console.error('Error loading model:', error);
-            setStatus(`Ошибка загрузки модели: ${error.message}`);
+            setStatus(`Error loading model: ${error.message}`);
           } finally {
             setLoading(false);
             loadAvailableModels();
@@ -134,7 +140,10 @@
           const file = event.target.files[0];
           if (file) {
             setAudioFile(file);
-            setStatus(`Файл ${file.name} выбран (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+            setStatus(`File ${file.name} selected (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+            // Reset cancel state when selecting new file
+            setCanCancel(false);
+            setAbortController(null);
           }
         };
 
@@ -147,48 +156,93 @@
           return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
 
+        const cancelTranscription = () => {
+          if (abortController) {
+            abortController.abort();
+            setCanCancel(false);
+            setLoading(false);
+            setStatus('Transcription cancelled');
+            setAbortController(null);
+          }
+        };
+
         const transcribeAudio = async () => {
           if (!modelLoaded || !audioFile) {
-            setStatus('Сначала загрузите модель и выберите аудио файл');
+            setStatus('Please load a model and select an audio file first');
             return;
           }
 
+          // Create new AbortController for this transcription
+          const controller = new AbortController();
+          setAbortController(controller);
+          setCanCancel(true);
           setLoading(true);
-          setStatus('Транскрипция в процессе...');
+          setStatus('Transcription in progress...');
+          setTranscription(''); // Clear previous result
 
-          await audioHandler.loadAudio(
-            audioFile,
-            // onProgress
-            (message) => {
-              setStatus(message);
-            },
-            // onSuccess
-            async (audioData, audioInfo) => {
-              console.log('Audio processed:', audioInfo);
-              try {
-                const session = whisperService.createSession();
-                const result = await session.streamimg(
-                  audioData, { language: 'ru', threads: 25, translate: false }
-                );
+          try {
+            await audioHandler.loadAudio(
+              audioFile,
+              // onProgress
+              (message) => {
+                if (controller.signal.aborted) return;
+                setStatus(message);
+              },
+              // onSuccess
+              async (audioData, audioInfo) => {
+                if (controller.signal.aborted) return;
+                
+                console.log('Audio processed:', audioInfo);
+                try {
+                  const session = whisperService.createSession();
+                  const result = await session.streamimg(
+                    audioData, { language: 'ru', threads: 25, translate: false }
+                  );
 
-                for await (const segment of result) {
-                  setTranscription((t) => t + `[${msToTime(segment.timeStart)} --> ${msToTime(segment.timeEnd)}]: ${segment.text}` + '\n');
+                  for await (const segment of result) {
+                    if (controller.signal.aborted) {
+                      throw new Error('Transcription cancelled');
+                    }
+                    setTranscription((t) => t + `[${msToTime(segment.timeStart)} --> ${msToTime(segment.timeEnd)}]: ${segment.text}` + '\n');
+                  }
+
+                  if (!controller.signal.aborted) {
+                    setStatus('Transcription completed!');
+                  }
+                } catch (error) {
+                  if (error.message === 'Transcription cancelled') {
+                    setStatus('Transcription cancelled');
+                  } else {
+                    console.error('Transcription error:', error);
+                    setStatus(`Transcription error: ${error.message}`);
+                  }
                 }
-
-                setStatus('Транскрипция завершена!');
-              } catch (error) {
-                console.error('Transcription error:', error);
-                setStatus(`Ошибка транскрипции: ${error.message}`);
-              }
-              setLoading(false);
-            },
-            // onError
-            (error) => {
-              console.error('Audio processing error:', error);
-              setStatus(`Ошибка обработки аудио: ${error}`);
-              setLoading(false);
-            },
-          );
+                setLoading(false);
+                setCanCancel(false);
+                setAbortController(null);
+              },
+              // onError
+              (error) => {
+                if (controller.signal.aborted) return;
+                
+                console.error('Audio processing error:', error);
+                setStatus(`Audio processing error: ${error}`);
+                setLoading(false);
+                setCanCancel(false);
+                setAbortController(null);
+              },
+            );
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              setStatus('Transcription cancelled');
+            } else {
+              console.error('Transcription error:', error);
+              setStatus(`Transcription error: ${error.message}`);
+            }
+            setLoading(false);
+            setCanCancel(false);
+            setAbortController(null);
+          }
         };
 
         return html`
@@ -198,9 +252,9 @@
             <h1>Whisper.wasm Demo</h1>
 
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-              <h2>1. Проверка поддержки WASM</h2>
+              <h2>1. Check WASM Support</h2>
               <button onClick=${checkWasmSupport} disabled=${loading}>
-                Проверить поддержку WASM
+                Check WASM Support
               </button>
               ${wasmSupported !== null &&
               html`
@@ -211,13 +265,13 @@
                     ? '#155724'
                     : '#721c24'}; border-radius: 3px;"
                 >
-                  WASM ${wasmSupported ? 'поддерживается' : 'не поддерживается'}
+                  WASM ${wasmSupported ? 'is supported' : 'is not supported'}
                 </div>
               `}
             </div>
 
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-              <h2>2. Загрузка модели</h2>
+              <h2>2. Load Model</h2>
               <div style="margin-bottom: 10px;">
                 <select
                   value=${selectedModel}
@@ -237,22 +291,22 @@
                 </select>
               </div>
               <button onClick=${loadModel} disabled=${loading || !wasmSupported}>
-                Загрузить модель
+                Load Model
               </button>
               <button
                 onClick=${async () => {
                   try {
                     await modelManager.clearCache();
                     await loadAvailableModels();
-                    setStatus('Кэш очищен');
+                    setStatus('Cache cleared');
                   } catch (error) {
-                    setStatus(`Ошибка очистки кэша: ${error.message}`);
+                    setStatus(`Error clearing cache: ${error.message}`);
                   }
                 }}
                 style="margin-left: 10px;"
                 disabled=${loading}
               >
-                🗑️ Очистить кэш
+                🗑️ Clear Cache
               </button>
               ${loading &&
               progress > 0 &&
@@ -281,20 +335,20 @@
                 </div>
               `}
               <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                ✅ = закэшировано, ⬇️ = нужно загрузить
+                ✅ = cached, ⬇️ = needs download
               </div>
               ${modelLoaded &&
               html`
                 <div
                   style="margin-top: 10px; padding: 10px; background-color: #d4edda; color: #155724; border-radius: 3px;"
                 >
-                  Модель загружена!
+                  Model loaded!
                 </div>
               `}
             </div>
 
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-              <h2>3. Загрузка аудио</h2>
+              <h2>3. Load Audio</h2>
               <input
                 type="file"
                 accept="audio/*"
@@ -306,23 +360,33 @@
                 <div
                   style="padding: 10px; background-color: #d4edda; color: #155724; border-radius: 3px;"
                 >
-                  Файл: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)
+                  File: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)
                 </div>
               `}
             </div>
 
             <div style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
-              <h2>4. Транскрипция</h2>
-              <button onClick=${transcribeAudio} disabled=${loading || !modelLoaded || !audioFile}>
-                ${loading ? 'Обработка...' : 'Транскрибировать'}
-              </button>
+              <h2>4. Transcription</h2>
+              <div style="margin-bottom: 10px;">
+                <button onClick=${transcribeAudio} disabled=${loading || !modelLoaded || !audioFile}>
+                  ${loading ? 'Processing...' : 'Transcribe'}
+                </button>
+                ${canCancel && html`
+                  <button 
+                    onClick=${cancelTranscription} 
+                    style="margin-left: 10px;"
+                  >
+                    ❌ Cancel
+                  </button>
+                `}
+              </div>
               <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                Debug: modelLoaded=${modelLoaded}, audioFile=${!!audioFile}, loading=${loading}
+                Debug: modelLoaded=${modelLoaded}, audioFile=${!!audioFile}, loading=${loading}, canCancel=${canCancel}
               </div>
               ${transcription &&
               html`
                 <div style="margin-top: 10px;">
-                  <h3>Результат:</h3>
+                  <h3>Result:</h3>
                   <textarea
                     value=${transcription}
                     readonly

@@ -1,4 +1,4 @@
-import { sleep } from 'src/utils/sleep';
+import { sleep } from '../utils/sleep';
 import { Logger, LoggerLevelsType } from '../utils/Logger';
 import {
   type WhisperWasmTranscriptionOptions,
