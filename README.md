@@ -1,6 +1,6 @@
 # Whisper.wasm
 
-A TypeScript wrapper for [whisper.cpp](https://github.com/ggerganov/whisper.cpp) that brings OpenAI's Whisper speech recognition to the browser and Node.js using WebAssembly.
+A TypeScript wrapper for [whisper.cpp](https://github.com/ggml-org/whisper.cpp) that brings OpenAI's Whisper speech recognition to the browser and Node.js using WebAssembly.
 
 ## Features
 
@@ -38,7 +38,7 @@ if (!isSupported) {
 
 // Load a model
 const modelData = await modelManager.loadModel('base'); // or 'tiny', 'small', 'medium', 'large'
-await whisper.loadWasmModule(modelData);
+await whisper.initModel(modelData);
 
 // Create a transcription session for streaming
 const session = whisper.createSession();
@@ -100,7 +100,7 @@ new WhisperWasmService(options?: {
 
 Checks if WebAssembly is supported in the current environment.
 
-##### `loadWasmModule(model: Uint8Array): Promise<void>`
+##### `initModel(model: Uint8Array): Promise<void>`
 
 Loads a Whisper model from binary data.
 
@@ -181,6 +181,32 @@ Processes audio data in streaming fashion.
 - **Firefox**: 52+
 - **Safari**: 11+
 - **Edge**: 16+
+
+## FAQ
+
+### Q: Why is my transcription stopping unexpectedly?
+
+A: This is usually related to WebAssembly execution being terminated by the browser due to resource management policies, low battery, or background tab throttling. Use the `restartModelOnError: true` option to automatically restart the model when this happens.
+
+### Q: Can I use this in a background tab?
+
+A: Some browsers may throttle or pause WebAssembly execution in background tabs. Consider using the `restartModelOnError` option and implementing visibility change listeners to handle this.
+
+### Q: Why is the first transcription slower?
+
+A: The first transcription includes model initialization time. Subsequent transcriptions with the same model will be faster.
+
+### Q: Can I transcribe audio in real-time?
+
+A: Yes! Use the `TranscriptionSession` with streaming audio data. For real-time applications, consider using the `tiny` or `base` models for better performance.
+
+### Q: What audio formats are supported?
+
+A: The library works with `Float32Array` audio data at 16kHz sample rate. You'll need to convert your audio files to this format before processing.
+
+### Q: How do I handle errors gracefully?
+
+A: Use try-catch blocks around transcription calls and implement the `restartModelOnError` option for automatic recovery from WebAssembly execution issues.
 
 ## Demo
 

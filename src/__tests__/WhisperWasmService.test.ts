@@ -70,7 +70,7 @@ describe('WhisperWasmService', () => {
     });
   });
 
-  describe('loadWasmModule', () => {
+  describe('initModel', () => {
     const mockModelData = new Uint8Array([1, 2, 3, 4, 5]);
 
     beforeEach(async () => {
@@ -81,11 +81,11 @@ describe('WhisperWasmService', () => {
       const { simd } = await import('wasm-feature-detect');
       vi.mocked(simd).mockResolvedValueOnce(false);
 
-      await expect(service.loadWasmModule(mockModelData)).rejects.toThrow('WASM is not supported');
+      await expect(service.initModel(mockModelData)).rejects.toThrow('WASM is not supported');
     });
 
     it('should load model successfully', async () => {
-      await service.loadWasmModule(mockModelData);
+      await service.initModel(mockModelData);
 
       expect(mockWasmModule.FS_unlink).toHaveBeenCalledWith('whisper.bin');
       expect(mockWasmModule.FS_createDataFile).toHaveBeenCalledWith(
@@ -106,7 +106,7 @@ describe('WhisperWasmService', () => {
 
     beforeEach(async () => {
       await service.loadWasmScript();
-      await service.loadWasmModule(mockModelData);
+      await service.initModel(mockModelData);
     });
 
     it('should throw error if WASM module not loaded', async () => {
@@ -164,7 +164,7 @@ describe('WhisperWasmService', () => {
 
     beforeEach(async () => {
       await service.loadWasmScript();
-      await service.loadWasmModule(new Uint8Array([1, 2, 3, 4, 5]));
+      await service.initModel(new Uint8Array([1, 2, 3, 4, 5]));
       session = service.createSession();
     });
 
@@ -185,7 +185,7 @@ describe('WhisperWasmService', () => {
             clearInterval(interval);
             service['bus'].emit('transcribeError', ' ');
           }
-        }, 100);
+        }, 10); // Faster interval for test
       });
 
       const segments: any[] = [];
@@ -205,6 +205,7 @@ describe('WhisperWasmService', () => {
         threads: 2,
         translate: true,
         sleepMsBetweenChunks: 100,
+        timeoutMs: 1000, // Add timeout for test
       };
 
       mockWasmModule.full_default.mockImplementation(() => {

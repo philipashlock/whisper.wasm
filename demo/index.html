@@ -116,7 +116,7 @@
             });
             console.log('Model data loaded, size:', modelData.length);
             // await whisperService.loadWasmScriptUnsafe();
-            await whisperService.loadWasmModule(modelData);
+            await whisperService.initModel(modelData);
             console.log('WASM module loaded successfully');
             setModelLoaded(true);
             setStatus(`Model ${selectedModel} loaded successfully!`);

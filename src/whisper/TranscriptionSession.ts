@@ -5,6 +5,7 @@ import {
   type WhisperWasmServiceCallbackParams,
 } from './types';
 import { WhisperWasmService } from './WhisperWasmService';
+import { createTimeoutError } from '../utils/timeoutError';
 
 function splitFloat32Array(arr: Float32Array, chunkSize = 16000 * 100) {
   const result: Float32Array[] = [];
@@ -18,6 +19,8 @@ type TResolver = ((value: WhisperWasmServiceCallbackParams | undefined) => void)
 
 interface ITranscriptionSessionOptions extends WhisperWasmTranscriptionOptions {
   sleepMsBetweenChunks?: number;
+  restartModelOnError?: boolean;
+  timeoutMs?: number;
 }
 
 export class TranscriptionSession {
@@ -34,6 +37,7 @@ export class TranscriptionSession {
     audioData: Float32Array,
     options: ITranscriptionSessionOptions = {},
   ): AsyncIterableIterator<WhisperWasmServiceCallbackParams> {
+    const { timeoutMs = 30_000 } = options;
     const audioDataChunks = splitFloat32Array(audioData);
     let lastSegmentTimeEnd = 0;
     for await (const chunk of audioDataChunks) {
@@ -42,41 +46,62 @@ export class TranscriptionSession {
       let done = false;
       let error: any;
       let currentSegmentTimeEnd = 0;
+      const { timeoutError, clear } = createTimeoutError(timeoutMs, 'Transcribe timeout');
 
-      this.whisperService
-        .transcribe(
-          chunk,
-          (segment) => {
-            currentSegmentTimeEnd = segment.timeEnd;
-            segment.timeStart += lastSegmentTimeEnd;
-            segment.timeEnd += lastSegmentTimeEnd;
-            if (resolver) {
-              resolver(segment);
-              resolver = null;
-            } else {
-              queue.push(segment);
-            }
-          },
-          options,
-        )
-        .then(() => {
-          done = true;
-          lastSegmentTimeEnd += currentSegmentTimeEnd;
-          resolver?.(undefined);
-        })
-        .catch((e) => {
-          error = e;
-        });
+      const startTranscription = () =>
+        this.whisperService
+          .transcribe(
+            chunk,
+            (segment) => {
+              currentSegmentTimeEnd = segment.timeEnd;
+              segment.timeStart += lastSegmentTimeEnd;
+              segment.timeEnd += lastSegmentTimeEnd;
+              clear();
+              if (resolver) {
+                resolver(segment);
+                resolver = null;
+              } else {
+                queue.push(segment);
+              }
+            },
+            options,
+          )
+          .then(() => {
+            done = true;
+            lastSegmentTimeEnd += currentSegmentTimeEnd;
+            clear();
+            resolver?.(undefined);
+          })
+          .catch((e) => {
+            error = e;
+            clear();
+            resolver?.(undefined);
+          });
+
+      startTranscription();
 
       while (true) {
-        if (error) throw error;
+        if (error) {
+          if (options.restartModelOnError) {
+            this.whisperService.restartModel();
+            startTranscription();
+            continue;
+          }
+          throw error;
+        }
         if (done) break;
         if (queue.length) {
           yield queue.shift()!;
         } else {
-          const result = await new Promise((r: TResolver) => (resolver = r));
-          if (result) {
-            yield result;
+          try {
+            await Promise.race([
+              new Promise<WhisperWasmServiceCallbackParams | undefined>(
+                (r: TResolver) => (resolver = r),
+              ),
+              timeoutError(),
+            ]);
+          } catch (timeoutError) {
+            error = timeoutError;
           }
         }
       }
