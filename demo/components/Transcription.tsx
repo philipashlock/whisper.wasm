@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { WhisperWasmService } from '../../src/index';
-import { AudioHandler } from '../AudioHandler';
+import { AudioHandler } from '../utils/AudioHandler';
 
 interface TranscriptionSegment {
   text: string;
