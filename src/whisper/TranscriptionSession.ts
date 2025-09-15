@@ -56,23 +56,26 @@ export class TranscriptionSession {
               currentSegmentTimeEnd = segment.timeEnd;
               segment.timeStart += lastSegmentTimeEnd;
               segment.timeEnd += lastSegmentTimeEnd;
-              clear();
+              this.logger.debug('Transcription segment in session:', segment);
               if (resolver) {
                 resolver(segment);
                 resolver = null;
               } else {
                 queue.push(segment);
               }
+              clear();
             },
             options,
           )
           .then(() => {
+            this.logger.debug('Transcription done in session then');
             done = true;
             lastSegmentTimeEnd += currentSegmentTimeEnd;
             clear();
             resolver?.(undefined);
           })
           .catch((e) => {
+            this.logger.debug('Transcription error in session catch:', e);
             error = e;
             clear();
             resolver?.(undefined);
@@ -94,14 +97,17 @@ export class TranscriptionSession {
           yield queue.shift()!;
         } else {
           try {
-            await Promise.race([
+            const result = await Promise.race([
               new Promise<WhisperWasmServiceCallbackParams | undefined>(
                 (r: TResolver) => (resolver = r),
               ),
               timeoutError(),
             ]);
-          } catch (timeoutError) {
-            error = timeoutError;
+            if (result) {
+              yield result;
+            }
+          } catch (e) {
+            error = e;
           }
         }
       }

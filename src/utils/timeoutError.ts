@@ -5,7 +5,6 @@ export function createTimeoutError(timeoutMs: number, errorMessage: string) {
   let resolvePromise: ((value: void) => void) | null = null;
 
   const timeoutError = (): Promise<void> => {
-    if (isResolved) return Promise.resolve();
     return new Promise<void>((resolve, reject) => {
       resolvePromise = resolve;
       rejectPromise = reject;

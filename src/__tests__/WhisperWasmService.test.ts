@@ -227,5 +227,59 @@ describe('WhisperWasmService', () => {
         true,
       );
     });
+
+    it('should throw timeout error when transcription takes too long', async () => {
+      const mockAudioData = new Float32Array(16000);
+      const options = {
+        timeoutMs: 100, // Very short timeout for test
+      };
+
+      // Mock full_default to never emit any events (simulate hanging)
+      mockWasmModule.full_default.mockImplementation(() => {
+        // Do nothing - simulate hanging transcription
+      });
+
+      const segments: any[] = [];
+      let timeoutError: Error | null = null;
+
+      try {
+        for await (const segment of session.streamimg(mockAudioData, options)) {
+          segments.push(segment);
+        }
+      } catch (error) {
+        timeoutError = error as Error;
+      }
+
+      expect(timeoutError).toBeInstanceOf(Error);
+      expect(timeoutError?.message).toBe('Transcribe timeout');
+      expect(segments).toHaveLength(0);
+    });
+
+    it('should not throw timeout error when transcription completes in time', async () => {
+      const mockAudioData = new Float32Array(16000);
+      const options = {
+        timeoutMs: 1000, // Longer timeout
+      };
+
+      // Mock full_default to complete quickly
+      mockWasmModule.full_default.mockImplementation(() => {
+        setTimeout(() => {
+          service['bus'].emit('transcribeError', ' ');
+        }, 50); // Complete before timeout
+      });
+
+      const segments: any[] = [];
+      let timeoutError: Error | null = null;
+
+      try {
+        for await (const segment of session.streamimg(mockAudioData, options)) {
+          segments.push(segment);
+        }
+      } catch (error) {
+        timeoutError = error as Error;
+      }
+
+      expect(timeoutError).toBeNull();
+    });
   });
 });
