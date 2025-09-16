@@ -48,6 +48,7 @@ export class WhisperWasmService {
   private isTranscribing: boolean = false;
   private bus = new TranscriptionEventBus();
   private logger: Logger;
+  private modelData: Uint8Array | null = null;
 
   constructor(options?: WhisperWasmServiceOptions) {
     this.logger = new Logger(options?.logLevel ?? Logger.levels.ERROR, 'WhisperWasmService');
@@ -82,20 +83,19 @@ export class WhisperWasmService {
     });
   }
 
-  async loadWasmModule(model: Uint8Array): Promise<void> {
+  async initModel(model: Uint8Array): Promise<void> {
     if (!(await this.checkWasmSupport())) {
       throw new Error('WASM is not supported');
     }
+
+    this.modelData = model;
 
     if (this.wasmModule) {
       this.wasmModule.FS_unlink(this.modelFileName);
       this.wasmModule.free();
     }
 
-    // if (!this.wasmModule) {
-    // todo implement destroy function
     await this.loadWasmScript();
-    // }
 
     await sleep(100);
 
@@ -103,6 +103,13 @@ export class WhisperWasmService {
     this.instance = this.wasmModule!.init(this.modelFileName);
 
     return Promise.resolve();
+  }
+
+  restartModel(): Promise<void> {
+    if (!this.modelData) {
+      throw new Error('Model not loaded');
+    }
+    return this.initModel(this.modelData);
   }
 
   storeFS(fname: string, buf: Uint8Array) {
@@ -179,6 +186,7 @@ export class WhisperWasmService {
           unsubscribeError();
           this.logger.error('Transcribe timeout');
           reject(new Error('Transcribe timeout'));
+          this.bus.emit('transcribeError', 'Transcribe timeout');
         },
         maxDuration * 2 * 1000,
       );

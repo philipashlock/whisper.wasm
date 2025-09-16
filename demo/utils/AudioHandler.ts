@@ -1,28 +1,42 @@
 // Audio file handler for Whisper.wasm
+export interface AudioInfo {
+  sampleRate: number;
+  duration: number;
+  channels: number;
+}
+
+export type ProgressCallback = (message: string) => void;
+export type SuccessCallback = (audioData: Float32Array, audioInfo: AudioInfo) => void;
+export type ErrorCallback = (error: string) => void;
+
 export class AudioHandler {
+  private readonly kMaxAudio_s: number = 30 * 60; // 30 minutes maximum
+  private readonly kMaxRecording_s: number = 2 * 60; // 2 minutes for recording
+  private readonly kSampleRate: number = 16000; // 16kHz sample rate for Whisper
+
+  private context: AudioContext | null = null;
+
   constructor() {
-    this.kMaxAudio_s = 30 * 60; // 30 minutes maximum
-    this.kMaxRecording_s = 2 * 60; // 2 minutes for recording
-    this.kSampleRate = 16000; // 16kHz sample rate for Whisper
-
     // Initialize AudioContext
-    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-    window.OfflineAudioContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-
-    this.context = null;
+    if (typeof window !== 'undefined') {
+      (window as any).AudioContext =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      (window as any).OfflineAudioContext =
+        (window as any).OfflineAudioContext || (window as any).webkitOfflineAudioContext;
+    }
   }
 
   /**
    * Creates AudioContext with proper settings for Whisper
    */
-  createAudioContext() {
+  createAudioContext(): AudioContext {
     if (!this.context) {
       this.context = new AudioContext({
         sampleRate: this.kSampleRate,
-        channelCount: 1,
-        echoCancellation: false,
-        autoGainControl: true,
-        noiseSuppression: true,
+        // channelCount: 1,
+        // echoCancellation: false,
+        // autoGainControl: true,
+        // noiseSuppression: true,
       });
     }
     return this.context;
@@ -30,12 +44,17 @@ export class AudioHandler {
 
   /**
    * Loads and processes audio file
-   * @param {File} file - audio file
-   * @param {Function} onProgress - progress callback
-   * @param {Function} onSuccess - success callback
-   * @param {Function} onError - error callback
+   * @param file - audio file
+   * @param onProgress - progress callback
+   * @param onSuccess - success callback
+   * @param onError - error callback
    */
-  async loadAudio(file, onProgress, onSuccess, onError) {
+  async loadAudio(
+    file: File,
+    onProgress: ProgressCallback,
+    onSuccess: SuccessCallback,
+    onError: ErrorCallback,
+  ): Promise<void> {
     if (!file) {
       onError('No file selected');
       return;
@@ -69,7 +88,7 @@ export class AudioHandler {
 
       // Render audio
       const renderedBuffer = await offlineContext.startRendering();
-      let audio = renderedBuffer.getChannelData(0);
+      const audio = renderedBuffer.getChannelData(0);
 
       onProgress(`Audio loaded, size: ${audio.length} samples`);
 
@@ -80,17 +99,17 @@ export class AudioHandler {
       });
     } catch (error) {
       console.error('Audio decoding error:', error);
-      onError(`Audio decoding error: ${error.message}`);
+      onError(`Audio decoding error: ${(error as Error).message}`);
     }
   }
 
   /**
    * Reads file as ArrayBuffer
    */
-  readFileAsArrayBuffer(file) {
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (event) => resolve(event.target.result);
+      reader.onload = (event) => resolve(event.target?.result as ArrayBuffer);
       reader.onerror = (error) => reject(error);
       reader.readAsArrayBuffer(file);
     });
@@ -99,14 +118,14 @@ export class AudioHandler {
   /**
    * Checks Web Audio API support
    */
-  isSupported() {
-    return !!(window.AudioContext || window.webkitAudioContext);
+  isSupported(): boolean {
+    return !!(window.AudioContext || (window as any).webkitAudioContext);
   }
 
   /**
    * Gets information about supported formats
    */
-  getSupportedFormats() {
+  getSupportedFormats(): string[] {
     return ['MP3', 'WAV', 'OGG', 'M4A', 'FLAC', 'AAC'];
   }
 }
