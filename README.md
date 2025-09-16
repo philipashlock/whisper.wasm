@@ -230,6 +230,14 @@ The demo includes:
 - Language detection and translation
 - Streaming audio support
 
+## Changelog
+
+For detailed information about changes, new features, and bug fixes, see our [changelog documentation](docs/changelog/).
+
+### Recent Updates
+
+- **[feature-restart-on-timeout](docs/changelog/feature-restart-on-timeout.md)** - Added timeout handling, error recovery, and enhanced demo application
+
 ## Development
 
 ### Prerequisites
