@@ -1,3 +1,5 @@
+ARG WHISPER_CPP_VERSION="v1.7.6"
+
 # Multi-stage build for whisper.wasm
 FROM emscripten/emsdk:4.0.14 AS builder
 
@@ -12,7 +14,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone whisper.cpp repository
-RUN git clone https://github.com/ggerganov/whisper.cpp.git
+ARG WHISPER_CPP_VERSION
+RUN git clone --depth 1 --branch $WHISPER_CPP_VERSION https://github.com/ggml-org/whisper.cpp.git
 
 WORKDIR /src/whisper.cpp
 RUN mkdir build-em
