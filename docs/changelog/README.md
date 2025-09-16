@@ -29,5 +29,3 @@ When creating a new changelog:
 3. Include all significant changes
 4. Update this README to include the new changelog
 5. Update the main project README if needed
-
-

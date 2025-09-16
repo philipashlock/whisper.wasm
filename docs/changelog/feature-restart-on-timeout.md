@@ -57,14 +57,12 @@
 - **Error recovery testing** - Tests for automatic model restart functionality
 - **Updated existing tests** - Modified tests to accommodate API changes
 
-
 ## 📦 Dependencies
 
 ### Added
 
 - React and React-DOM for demo application
 - TypeScript types for better development experience in demo application
-
 
 ## 🔄 Migration Guide
 
@@ -96,4 +94,3 @@
 - `a6982de` - feat: implement demo application with React components for audio processing and transcription
 - `5ce3443` - chore: remove unused import for createTimeoutError in WhisperWasmService
 - `0bcdd42` - refactor: rename loadWasmModule to initModel and add timeout handling in TranscriptionSession
-
