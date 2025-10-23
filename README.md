@@ -15,8 +15,26 @@ A TypeScript wrapper for [whisper.cpp](https://github.com/ggml-org/whisper.cpp) 
 
 ## Installation
 
+### From npm
+
 ```bash
 npm install @timur00kh/whisper.wasm@canary
+```
+
+### From GitHub (philipashlock fork)
+
+```bash
+npm install github:philipashlock/whisper.wasm#main
+```
+
+Or in your `package.json`:
+
+```json
+{
+  "dependencies": {
+    "@timur00kh/whisper.wasm": "github:philipashlock/whisper.wasm#v0.0.8"
+  }
+}
 ```
 
 ## Quick Start
@@ -244,32 +262,141 @@ For detailed information about changes, new features, and bug fixes, see our [ch
 
 - Node.js 18+
 - npm or yarn
+- Docker (only for rebuilding WASM binaries)
 
 ### Setup
 
 ```bash
-git clone https://github.com/timur00kh/whisper.wasm.git
+git clone https://github.com/philipashlock/whisper.wasm.git
 cd whisper.wasm
 npm install
 ```
 
-### Build
+### Build Workflow
+
+This package uses a two-stage build process:
+
+#### Stage 1: WASM Compilation (Infrequent)
+
+**Only needed when:**
+- Updating whisper.cpp version
+- Modifying WASM compilation flags
+- Building from scratch for the first time
+
+```bash
+# Requires Docker
+./build-wasm.sh
+```
+
+This script:
+- Detects your platform (ARM64/AMD64)
+- Runs Docker container with Emscripten
+- Compiles whisper.cpp to WebAssembly
+- Outputs to `wasm/` directory (~10MB)
+- The `wasm/` directory IS committed to git
+
+**Note:** The build script automatically detects macOS ARM64 architecture and sets the correct Docker platform.
+
+#### Stage 2: TypeScript Library Build (Frequent)
+
+**Needed when:**
+- Modifying TypeScript wrapper code
+- Publishing updates
+- Installing from GitHub
 
 ```bash
 # Build the library
 npm run build:lib
 
-# Build the demo
-npm run build:demo
+# Or just run install (triggers prepare script)
+npm install
+```
 
-# Run development server
+This:
+- Bundles TypeScript code with Vite
+- Includes WASM files as assets
+- Outputs to `dist/` directory (~4MB)
+- The `dist/` directory is NOT committed to git
+
+### Repository Structure
+
+```
+whisper.wasm/
+├── wasm/              # ✅ COMMITTED - Pre-built WASM binaries
+│   ├── libmain.js     # Main whisper module
+│   ├── libstream.js   # Streaming module
+│   └── ...
+├── dist/              # ❌ IGNORED - Built library (auto-generated)
+│   ├── index.es.js
+│   ├── index.cjs.js
+│   └── ...
+├── src/               # TypeScript wrapper source
+├── Dockerfile         # Multi-platform WASM build
+└── build-wasm.sh      # Platform-aware build script
+```
+
+### Development Workflows
+
+#### Working on the Library
+
+```bash
+# One-time WASM build (or when updating whisper.cpp)
+./build-wasm.sh
+
+# Rebuild TypeScript after changes
+npm run build:lib
+
+# Run tests
+npm test
+
+# Run demo locally
 npm run dev:demo
 ```
+
+#### Using Library in Another Project Locally
+
+```bash
+# In this library directory
+npm link
+
+# In your app directory (e.g., whisper-wasm React app)
+npm link @timur00kh/whisper.wasm
+npm run dev
+```
+
+When done with local development:
+
+```bash
+# In your app directory
+npm unlink @timur00kh/whisper.wasm
+npm install  # Reinstalls from GitHub
+```
+
+#### Installing from GitHub in Production
+
+When you run `npm install` with the GitHub dependency:
+
+```json
+"@timur00kh/whisper.wasm": "github:philipashlock/whisper.wasm#main"
+```
+
+npm will:
+1. Clone the repository
+2. Find pre-built `wasm/` files (committed)
+3. Run `prepare` script → builds `dist/` from source
+4. No Docker required!
 
 ### Testing
 
 ```bash
+# Run all tests
 npm test
+
+# Watch mode
+npm run test:watch
+
+# With UI
+npm run test:ui
 ```
 
 ## License
