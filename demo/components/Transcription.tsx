@@ -71,7 +71,7 @@ export const Transcription: React.FC<TranscriptionProps> = ({
           console.log('Audio processed:', audioInfo);
           try {
             const session = whisperService.createSession();
-            const result = await session.streamimg(audioData, {
+            const result = await session.streaming(audioData, {
               language: 'ru',
               threads: 25,
               translate: false,

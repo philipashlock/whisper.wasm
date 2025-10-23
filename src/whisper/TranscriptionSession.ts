@@ -33,7 +33,7 @@ export class TranscriptionSession {
     this.logger = new Logger(options?.logLevel || Logger.levels.ERROR, 'TranscriptionSession');
   }
 
-  async *streamimg(
+  async *streaming(
     audioData: Float32Array,
     options: ITranscriptionSessionOptions = {},
   ): AsyncIterableIterator<WhisperWasmServiceCallbackParams> {
