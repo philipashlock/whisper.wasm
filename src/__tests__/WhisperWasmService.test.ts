@@ -189,7 +189,7 @@ describe('WhisperWasmService', () => {
       });
 
       const segments: any[] = [];
-      for await (const segment of session.streamimg(mockAudioData)) {
+      for await (const segment of session.streaming(mockAudioData)) {
         segments.push(segment);
       }
 
@@ -215,7 +215,7 @@ describe('WhisperWasmService', () => {
       });
 
       const segments: any[] = [];
-      for await (const segment of session.streamimg(mockAudioData, options)) {
+      for await (const segment of session.streaming(mockAudioData, options)) {
         segments.push(segment);
       }
 
@@ -243,7 +243,7 @@ describe('WhisperWasmService', () => {
       let timeoutError: Error | null = null;
 
       try {
-        for await (const segment of session.streamimg(mockAudioData, options)) {
+        for await (const segment of session.streaming(mockAudioData, options)) {
           segments.push(segment);
         }
       } catch (error) {
@@ -272,7 +272,7 @@ describe('WhisperWasmService', () => {
       let timeoutError: Error | null = null;
 
       try {
-        for await (const segment of session.streamimg(mockAudioData, options)) {
+        for await (const segment of session.streaming(mockAudioData, options)) {
           segments.push(segment);
         }
       } catch (error) {

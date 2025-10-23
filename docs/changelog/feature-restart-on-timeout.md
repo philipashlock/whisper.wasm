@@ -72,7 +72,7 @@
 2. **New Options**: Consider adding timeout and error recovery options to your transcription sessions:
    ```typescript
    const session = new TranscriptionSession(whisperService);
-   for await (const segment of session.streamimg(audioData, {
+   for await (const segment of session.streaming(audioData, {
      timeoutMs: 30000, // 30 seconds timeout
      restartModelOnError: true, // Auto-restart on errors
      sleepMsBetweenChunks: 100, // Delay between chunks

@@ -62,7 +62,7 @@ await whisper.initModel(modelData);
 const session = whisper.createSession();
 
 // Process audio in chunks
-const stream = session.streamimg(audioData, {
+const stream = session.streaming(audioData, {
   language: 'en',
   threads: 4,
   translate: false,
@@ -179,7 +179,7 @@ Handles streaming audio transcription.
 
 #### Methods
 
-##### `streamimg(audioData: Float32Array, options?: ITranscriptionSessionOptions): AsyncIterableIterator<WhisperWasmServiceCallbackParams>`
+##### `streaming(audioData: Float32Array, options?: ITranscriptionSessionOptions): AsyncIterableIterator<WhisperWasmServiceCallbackParams>`
 
 Processes audio data in streaming fashion.
 
